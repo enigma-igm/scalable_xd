@@ -57,7 +57,7 @@ class SGDGMMModule(nn.Module):
         weights = self.soft_max(self.soft_weights) # weights for the data
 
         log_resp = mvn(loc=self.means, scale_tril=self.L).log_prob(
-            x[:, None, :] # the Multi-Gaussian distribution template
+            x[:, None, :] # the Multi-Gaussian distribution template ?
         )
         log_resp += torch.log(weights)
 
