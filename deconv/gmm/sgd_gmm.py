@@ -38,6 +38,8 @@ class SGDGMMModule(nn.Module):
 
     @property
     def L(self):
+        '''The covariance of the data'''
+        # d_idx is the diagonal index of the last 2 dimensions, and l_idx is the lower left triangle without diagonal index of the last 2 dimensions. 
         L = torch.zeros(self.k, self.d, self.d, device=self.device)
         L[:, self.d_idx] = torch.exp(self.l_diag)
         L[:, self.l_idx[0], self.l_idx[1]] = self.l_lower
@@ -45,16 +47,17 @@ class SGDGMMModule(nn.Module):
 
     @property
     def covars(self):
+        # some kind of covariance matrix?
         return torch.matmul(self.L, torch.transpose(self.L, -2, -1))
 
     def forward(self, data):
 
-        x = data[0]
+        x = data[0] # get the data
 
-        weights = self.soft_max(self.soft_weights)
+        weights = self.soft_max(self.soft_weights) # weights for the data
 
         log_resp = mvn(loc=self.means, scale_tril=self.L).log_prob(
-            x[:, None, :]
+            x[:, None, :] # the Multi-Gaussian distribution template
         )
         log_resp += torch.log(weights)
 
@@ -74,13 +77,13 @@ class BaseSGDGMM(ABC):
         self.d = dimensions
         self.epochs = epochs
         self.batch_size = batch_size
-        self.tol = 1e-6
-        self.lr = lr
-        self.w = w
-        self.restarts = restarts
-        self.k_means_factor = k_means_factor
-        self.k_means_iters = k_means_iters
-        self.max_no_improvement = max_no_improvement
+        self.tol = 1e-6 # the convergence criterion, of the training loss change between every 2 epoch
+        self.lr = lr    # learing rate
+        self.w = w      # what factor?
+        self.restarts = restarts                     # number of times to training the model (outside of epochs)
+        self.k_means_factor = k_means_factor         # 
+        self.k_means_iters = k_means_iters           # 
+        self.max_no_improvement = max_no_improvement # the max allowed number of epochs with no improvement 
 
         if not device:
             self.device = torch.device('cpu')
@@ -89,6 +92,7 @@ class BaseSGDGMM(ABC):
 
         self.module.to(device)
 
+        # Adam optimizer
         self.optimiser = torch.optim.Adam(
             params=self.module.parameters(),
             lr=self.lr
@@ -108,6 +112,9 @@ class BaseSGDGMM(ABC):
         return self.module.covars.detach()
 
     def reg_loss(self, n, n_total):
+        '''
+        ?
+        '''
         l = (n / n_total) * self.w / torch.diagonal(self.module.covars, dim1=-1, dim2=-2)
         return l.sum()
 
@@ -142,7 +149,7 @@ class BaseSGDGMM(ABC):
             if val_data:
                 val_loss_curve = []
 
-            prev_loss = float('inf')
+            prev_loss = float('inf') # the training loss of the last epoch
             if val_data:
                 best_val_loss = float('inf')
                 no_improvement_epochs = 0
@@ -150,28 +157,34 @@ class BaseSGDGMM(ABC):
             for i in range(self.epochs):
                 train_loss = 0.0
                 for j, d in enumerate(loader):
-
+                    # j is the order of the minibatch, d is the minibatch
                     d = [a.to(self.device) for a in d]
-
+                    # initializing the gradient
                     self.optimiser.zero_grad()
-
+                    
+                    # getting the loss of the current minibatch
                     loss = self.module(d)
                     train_loss += loss.item()
 
-                    n = d[0].shape[0]
+                    # adding reg_loss to the current training loss
+                    n = d[0].shape[0] # length of the minibatch
                     loss += self.reg_loss(n, n_total)
 
+                    # backward and update parameters
                     loss.backward()
                     self.optimiser.step()
 
+                # recording the current training loss
                 train_loss_curve.append(train_loss)
 
+                # getting the validation loss
                 if val_data:
                     val_loss = self.score_batch(val_data)
                     val_loss_curve.append(val_loss)
 
                 self.scheduler.step()
 
+                # print out the training (and validation) loss
                 if verbose and i % interval == 0:
                     if val_data:
                         print('Epoch {}, Train Loss: {}, Val Loss :{}'.format(
@@ -183,32 +196,37 @@ class BaseSGDGMM(ABC):
                         print('Epoch {}, Loss: {}'.format(i, train_loss))
 
                 if val_data:
+                    # if the validation loss is decreasing then continuing the training
                     if val_loss < best_val_loss:
                         no_improvement_epochs = 0
                         best_val_loss = val_loss
                     else:
                         no_improvement_epochs += 1
-
+                    # if the validation loss did not decrease for epochs more than max_no_improvement, stop training
                     if no_improvement_epochs > self.max_no_improvement:
                         print('No improvement in val loss for {} epochs. Early Stopping at {}'.format(
                             self.max_no_improvement,
                             val_loss
                         ))
                         break
-
+                
+                # if the change of the training loss is less than self.tol, stop training
                 if abs(train_loss - prev_loss) < self.tol:
                     print('Training loss converged within tolerance at {}'.format(
                         train_loss
                     ))
                     break
-
+                
+                # update the training loss of the 'previous' epoch
                 prev_loss = train_loss
-
+            
+            # the loss of the current training, after all epochs
             if val_data:
                 score = val_loss
             else:
                 score = train_loss
 
+            # if the loss is the minimum so far, update the model
             if score < best_loss:
                 best_model = copy.deepcopy(self.module)
                 best_loss = score
@@ -216,6 +234,7 @@ class BaseSGDGMM(ABC):
                 if val_data:
                     best_val_loss_curve = val_loss_curve
 
+        # save the best model
         self.module = best_model
         self.train_loss_curve = best_train_loss_curve
         if val_data:
@@ -226,6 +245,9 @@ class BaseSGDGMM(ABC):
             return self.module(data)
 
     def score_batch(self, dataset):
+        '''
+        Loss of a batch of data.
+        '''
         loader = data_utils.DataLoader(
             dataset,
             batch_size=self.batch_size,
@@ -242,6 +264,9 @@ class BaseSGDGMM(ABC):
         return log_prob
 
     def init_params(self, loader):
+        '''
+        To initialize the parameters, which is to get the weights, data, and zero the covariance.?
+        '''
         counts, centroids = minibatch_k_means(loader, self.k, max_iters=self.k_means_iters, device=self.device)
         self.module.soft_weights.data = torch.log(counts / counts.sum())
         self.module.means.data = centroids
