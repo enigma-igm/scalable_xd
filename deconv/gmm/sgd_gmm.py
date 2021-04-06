@@ -67,7 +67,51 @@ class SGDGMMModule(nn.Module):
 
 
 class BaseSGDGMM(ABC):
-    """ABC for fitting a PyTorch nn-based GMM."""
+    """ABC for fitting a PyTorch nn-based GMM.
+    Parameters
+    ----------
+    components : int
+        The number of mixture components.
+
+    dimensions : int
+        The number of Gaussian dimensions.
+
+    epochs : int, default=10000
+        The number of training iterations in each restart. As max_no_improvement exists, the training of a restart does not need to go thorugh all the epochs.
+
+    lr : float, default=1e-3
+        learning rate. 
+
+    batch_size : int
+        The size of a batch.
+
+    tol : float, default=1e-6
+        The convergence criterion, of the training loss change between every 2 epoch.
+
+    restarts : int, default=5
+        The number of times of training. In each restart the final training or validation (if set) is restored and after all restarts the best model with the lowest loss is saved.
+
+    max_no_improvement : int, default=20
+        The maximum allowed number of epochs with no improvement. Only valid when validation data is provided.
+
+    k_means_factor : int, default=100
+        ???
+
+    w : float, default=1e-6
+        ???
+
+    k_means_iters : int, default=10
+        ???
+
+    lr_step : int, default=5
+        The range of the milestone of the scheduler is [lr_step, lr_step + 5]. Milestones: List of epoch indices.
+
+    lr_gamma : float, default=0.1
+        The gamma of the milestone of the scheduler. Multiplicative factor of learning rate decay.
+
+    device : torch.device
+        The device used to train the model.
+    """
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
                  batch_size=64, tol=1e-6, restarts=5, max_no_improvement=20,
@@ -81,7 +125,7 @@ class BaseSGDGMM(ABC):
         self.lr = lr    # learing rate
         self.w = w      # what factor?
         self.restarts = restarts                     # number of times to training the model (outside of epochs)
-        self.k_means_factor = k_means_factor         # 
+        self.k_means_factor = k_means_factor         # ??
         self.k_means_iters = k_means_iters           # 
         self.max_no_improvement = max_no_improvement # the max allowed number of epochs with no improvement 
 
@@ -111,9 +155,13 @@ class BaseSGDGMM(ABC):
     def covars(self):
         return self.module.covars.detach()
 
+    @property
+    def soft_weights(self):
+        return self.module.soft_weights.detach()
+
     def reg_loss(self, n, n_total):
         '''
-        ?
+        regression loss.
         '''
         l = (n / n_total) * self.w / torch.diagonal(self.module.covars, dim1=-1, dim2=-2)
         return l.sum()
@@ -122,6 +170,7 @@ class BaseSGDGMM(ABC):
         """Fit the GMM to data."""
         n_total = len(data)
 
+        # ???
         init_loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size * self.k_means_factor,
