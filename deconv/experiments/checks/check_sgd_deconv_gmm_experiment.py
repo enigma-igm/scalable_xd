@@ -92,6 +92,7 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
                 marker='x',
                 label='Cluster {}'.format(i)
             )
+
             # plot real means and covarianvces
             plot_covariance(
                 means[i, :], # means shape (K, D)
@@ -117,14 +118,32 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
             )
 
         ax.legend()
+        #plt.show()
+
+        #embed()
+        # plot the learned weight
+        fig, ax = plt.subplots()
+        width = 0.35
+
+        ax.bar(np.arange(K) - width/2, 
+            np.ones(K)/K, 
+            width=width,
+            color='C0',
+            label='Data')  
+
+        ax.bar(np.arange(K) + width/2,
+            gmm.soft_weights.softmax(0),
+            width=width,
+            color=sc.get_facecolor()[0],
+            label='Fitted') 
+            
+        ax.set_ylabel('Weights')
+        ax.set_xticks(np.arange(K))
+        ax.set_xticklabels([('Cluster ' + str(j)) for j in range(K)])
+        plt.legend()
         plt.show()
 
-    fig, ax = plt.subplots()
-    ax.scatter(np.arange(1, K+1, 1), np.ones(K))   
-    ax.scatter(np.arange(1, K+1, 1), gmm.soft_weights) 
-    plt.show()
-
-
+from IPython import embed
 if __name__ == '__main__':
     sns.set()
     D = 2
