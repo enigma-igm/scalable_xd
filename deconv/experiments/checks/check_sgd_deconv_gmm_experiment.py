@@ -8,7 +8,7 @@ from deconv.gmm.plotting import plot_covariance
 from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM
 from deconv.gmm.data import DeconvDataset
 
-from data import generate_data
+from data import generate_data2
 
 def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
     '''
@@ -34,10 +34,10 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
         device = torch.device('cpu')
 
     # load random noisy training and test data, each with shape (N, K, D), and noise covariances with shape (N, K, D, D). 
-    # also load the real data parameters: mean with shape (K, D) and covariances matrix with shape (K, D, D).
-    data, params = generate_data(D, K, N) 
+    # also load the real data parameters: mean with shape (K, D), covariances matrix with shape (K, D, D), and weights with length K.
+    data, params = generate_data2(D, K, N) 
     X_train, nc_train, X_test, nc_test = data
-    means, covars = params
+    means, covars, weights, draw = params
 
     # load training data
     train_data = DeconvDataset(
@@ -80,13 +80,33 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
         # plotting the training and test loss curve
         ax.plot(gmm.train_loss_curve, label='Training Loss')
         ax.plot(gmm.val_loss_curve, label='Validation Loss')
-
+        
         fig, ax = plt.subplots()
+        
+        for i in range(K):
+            # plot training data points
+            index = np.argwhere(draw==i).flatten()
+            sc = ax.scatter(
+                X_train[index, 0],
+                X_train[index, 1],
+                alpha=0.3,
+                marker='x',
+                label='Cluster {}'.format(i)
+            )
 
+            # plot real means and covarianvces
+            plot_covariance(
+                means[i, :], # means shape (K, D)
+                covars[i, :, :], # covars shape (K, D, D)
+                ax,
+                alpha=0.9,
+                color=sc.get_facecolor()[0]
+            )
+        '''
         for i in range(K):
             # plot training data points
             sc = ax.scatter(
-                X_train[:, i, 0],
+                X_train[:, i, 0], # X_train has shape (N, K, D)
                 X_train[:, i, 1],
                 alpha=0.2,
                 marker='x',
@@ -100,6 +120,7 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
                 ax,
                 color=sc.get_facecolor()[0]
             )
+        '''
         # plot learned means
         sc = ax.scatter(
             gmm.means[:, 0],
@@ -114,19 +135,20 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
                 gmm.means[i, :],
                 gmm.covars[i, :, :],
                 ax,
+                alpha=0.3,
                 color=sc.get_facecolor()[0]
             )
 
         ax.legend()
         #plt.show()
-
+        
         #embed()
         # plot the learned weight
         fig, ax = plt.subplots()
         width = 0.35
 
         ax.bar(np.arange(K) - width/2, 
-            np.ones(K)/K, 
+            weights, 
             width=width,
             color='C0',
             label='Data')  
@@ -148,5 +170,5 @@ if __name__ == '__main__':
     sns.set()
     D = 2
     K = 3
-    N = 500
+    N = K*500
     check_sgd_deconv_gmm(D, K, N, verbose=True, plot=True)

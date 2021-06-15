@@ -47,7 +47,7 @@ class SGDGMMModule(nn.Module):
 
     @property
     def covars(self):
-        # some kind of covariance matrix?
+        # covariance matrix, shape (k, d, d)
         return torch.matmul(self.L, torch.transpose(self.L, -2, -1))
 
     def forward(self, data):
@@ -57,7 +57,7 @@ class SGDGMMModule(nn.Module):
         weights = self.soft_max(self.soft_weights) # weights for the data
 
         log_resp = mvn(loc=self.means, scale_tril=self.L).log_prob(
-            x[:, None, :] # the Multi-Gaussian distribution template ?
+            x[:, None, :] # the Multi-Gaussian distribution template
         )
         log_resp += torch.log(weights)
 

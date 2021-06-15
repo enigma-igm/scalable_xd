@@ -19,7 +19,7 @@ def generate_data(D, K, N):
     data : tuple, 
         The noisy data and noise covariance. This includes 4 components: training data, shape (N, K, D), training data noise covariance, shape (N, K, D, D) test data, shape (N, K, D) test data covariance, shape (N, K, D, D).
     params : tuple,
-        The parameters of the real Gaussian mixture distribution. This includes 4 components: means, shape (K, D), covars, shape (K, D, D).
+        The parameters of the real Gaussian mixture distribution. This includes 2 components: means, shape (K, D), covars, shape (K, D, D).
     '''
     means = (np.random.rand(K, D) * 2000) - 1000 # Random array that has shape (K,D), uniformly distributed in (-1000, 1000)
     q = (2 * np.random.randn(K, D, D)) # Random array that has shape (K, D, D), normal distribution.
@@ -81,9 +81,9 @@ def generate_data2(D, K, N, weights=None):
     Returns
     -------
     data : tuple, 
-        The noisy data and noise covariance. This includes 4 components: training data, shape (N, K, D), training data noise covariance, shape (N, K, D, D) test data, shape (N, K, D) test data covariance, shape (N, K, D, D).
+        The noisy data and noise covariance. This includes 4 components: training data, shape (N, D), training data noise covariance, shape (N, D, D) test data, shape (N, D) test data covariance, shape (N, D, D).
     params : tuple,
-        The parameters of the real Gaussian mixture distribution. This includes 4 components: means, shape (K, D), covars, shape (K, D, D).
+        The parameters of the real Gaussian mixture distribution. This includes 4 components: means, shape (K, D), covars, shape (K, D, D), weights, length K, and the index of component each data is from, length N.
     '''
     means = (np.random.rand(K, D) * 2000) - 1000 # Random array that has shape (K,D), uniformly distributed in (-1000, 1000)
     q = (2 * np.random.randn(K, D, D)) # Random array that has shape (K, D, D), normal distribution.
@@ -96,7 +96,7 @@ def generate_data2(D, K, N, weights=None):
     if weights==None:
         weights = np.random.uniform(size=K)
         weights/= weights.sum()
-    draw = choice(np.arange(K), 2*N, p=weights) # the
+    draw = choice(np.arange(K), 2*N, p=weights) # which component each data is from
         
 
     X = np.empty((2 * N, D)) # the dataset, in which the first N are training set while the latter N are test set
@@ -106,8 +106,7 @@ def generate_data2(D, K, N, weights=None):
         # the real data
         X[j, :] = np.random.multivariate_normal(
             mean=means[draw[j], :],
-            cov=covars[draw[j], :, :],
-            size=2 * N
+            cov=covars[draw[j], :, :]
         )
         # the noise
         
@@ -116,10 +115,13 @@ def generate_data2(D, K, N, weights=None):
             cov=noise_covars[j, :, :]
         )
 
-    # shuffle the data
+    # shuffle index
     p = np.random.permutation(2 * N)
 
-    # split the data
+    # shuffle the component selecting array
+    draw = draw[p][:N]
+
+    # split and shuffle the data
     X_train = X[p][:N]
     X_test  = X[p][N:]
 
@@ -129,6 +131,6 @@ def generate_data2(D, K, N, weights=None):
 
     # return the noisy data and the parameters of the real data
     data = (X_train, nc_train, X_test, nc_test)
-    params = (means, covars, weights)
+    params = (means, covars, weights, draw)
 
     return data, params
