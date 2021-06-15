@@ -1,5 +1,5 @@
 # File itself
-*.gitignore
+*/.gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -107,4 +107,4 @@ venv.bak/
 .mypy_cache/
 
 # MacOs
-*.DS_Store
+*/.DS_Store
