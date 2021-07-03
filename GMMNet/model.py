@@ -18,7 +18,7 @@ class GMMNet(nn.Module):
         self.soft_max = torch.nn.Softmax(dim=0)
         
         self.embedding_network = nn.Sequential(*[nn.Linear(self.D_cond, self.vec_dim),
-                                               nn.ReLU(),
+                                               nn.PReLU(),
                                                 nn.Linear(self.vec_dim, self.vec_dim)])
        
         self.weights_network = nn.Sequential(*[nn.Linear(self.vec_dim, self.K),
@@ -43,7 +43,7 @@ class GMMNet(nn.Module):
         means     = self.means_network(embedding)
         means     = means.reshape(-1, self.K, self.D) + self.means0
         
-        covars_ele = torch.exp(self.covar_network(embedding))
+        covars_ele = self.covar_network(embedding)
         d_idx = torch.eye(self.D).to(torch.bool)
         l_idx = torch.tril_indices(self.D, self.D, -1)
         covars = torch.zeros((B, self.K, self.D, self.D))

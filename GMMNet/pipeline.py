@@ -2,6 +2,8 @@ from data import *
 from model import *
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.collections import LineCollection
 
 from more_itertools import chunked
 
@@ -13,7 +15,7 @@ from IPython import embed
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-K, D, D_cond = 3, 2, 9
+K, D, D_cond = 3, 2, 1
 
 N_t = 10000
 N_v = N_t//5
@@ -69,24 +71,115 @@ param_cond_v = chunck(param_cond_v, batch_size)
 
 
 
-epoch = 2000
+epoch = 500
 
 for n in range(epoch):
-    train_loss = 0
-    for i, data_i in enumerate(data_t):
-        optimizer.zero_grad()
-        loss = -gmm.log_prob_b(data_i, param_cond_t[i]).mean()
-        train_loss += loss.item()
+    try:
+        train_loss = 0
+        for i, data_i in enumerate(data_t):
+            optimizer.zero_grad()
+            loss = -gmm.log_prob_b(data_i, param_cond_t[i]).mean()
+            train_loss += loss.item()
 
-        # backward and update parameters
-        loss.backward()
-        optimizer.step()
-    
-    train_loss = train_loss / data_t.shape[0]
-    print((n+1),'Epoch', train_loss)
-    scheduler.step(train_loss)
+            # backward and update parameters
+            loss.backward()
+            optimizer.step()
+        
+        train_loss = train_loss / data_t.shape[0]
+        print((n+1),'Epoch', train_loss)
+        scheduler.step(train_loss)
+
+    except KeyboardInterrupt:
+        break
     
 
+
+# global check
+# conditional parameter covering the training range
+param_cond_tes = np.arange(0, 1, 0.01) + 0.01
+param_cond_tes = torch.FloatTensor(param_cond_tes.reshape(-1,1))
+
+# get the trained parameters
+weight_tes, means_tes, covars_tes = gmm(param_cond_tes)
+weight_tes = weight_tes.detach().numpy()
+means_tes  = means_tes.detach().numpy()
+covarL_tes = covars_tes.detach().numpy()
+covars_tes = np.matmul(covarL_tes, np.swapaxes(covarL_tes, -2, -1))
+
+# get the real paramters
+weight_r   = np.zeros((len(param_cond_tes), K))
+means_r    = np.zeros((len(param_cond_tes), K, D))
+covars_r   = np.zeros((len(param_cond_tes), K, D, D))
+for i in range(len(param_cond_tes)):
+    weight_r[i]   = weight_func(param_cond_tes[i], K)
+    means_r[i]    = means_func(param_cond_tes[i], K, D)
+    covars_r[i]   = covar_func(param_cond_tes[i], K, D)
+
+param_cond_tes = param_cond_tes.numpy()
+
+
+# figure. plot means vs conditional parameter
+fig, ax = plt.subplots()
+norm = plt.Normalize(param_cond_tes.min(), param_cond_tes.max())
+for i in range(K):
+    points = means_r[:,i,:].reshape(-1, 1, 2)#np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap='Blues', norm=norm)
+    # Set the values used for colormapping
+    lc.set_array(param_cond_tes.flatten())
+    lc.set_linewidth(2)
+    line = ax.add_collection(lc)
+cbar = plt.colorbar(line, ax=ax, aspect=15)
+cbar.set_label('Conditional Parameter z', fontsize=10)
+for i in range(K):
+    points = means_tes[:,i,:].reshape(-1, 1, 2)#np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap='Oranges', norm=norm)
+    # Set the values used for colormapping
+    lc.set_array(param_cond_tes.flatten())
+    lc.set_linewidth(2)
+    line = ax.add_collection(lc)
+cbar = plt.colorbar(line, ax=ax, aspect=15)
+ax.set_xlim(means_tes[:,:,0].min()-0.5, means_tes[:,:,0].max()+0.5)
+ax.set_ylim(means_tes[:,:,1].min()-0.5, means_tes[:,:,1].max()+0.5)
+ax.set_title('Means of Each Component', fontsize=14)
+
+
+# figure. plot weights vs conditional paramters
+fig, ax = plt.subplots()
+pw_r = ax.plot(param_cond_tes, weight_r, color='tab:blue', label='Real')
+pw_tes = ax.plot(param_cond_tes, weight_tes, color='tab:orange', label='Predicted')
+ax.set_xlabel('Conditional Parameter z', fontsize=14)
+ax.set_ylabel('weight', fontsize=14)
+ax.set_title(f'Weight of {K} Components', fontsize=14)
+customs = [pw_r[0], pw_tes[0]]
+ax.legend(customs, [pw_r[0].get_label(), pw_tes[0].get_label()], fontsize=10)
+
+
+# figure. all samples and initial guess of the means
+data_t = data_t.numpy().reshape(-1, 2)
+fig, ax = plt.subplots()
+pd_t = ax.scatter(*data_t.transpose(), marker='.', color='grey', alpha=0.5, label='samples')
+pd_k = ax.scatter(*means0_t.transpose(), s=80, marker='.', color='tab:orange', label='kmeans centroids')
+ax.set_title('All Samples', fontsize=14)
+ax.set_xlabel('Dimension 1')
+ax.set_ylabel('Dimension 2')
+ax.legend(fontsize=14)
+
+# figure. Diagonal Element
+fig, ax = plt.subplots(2)
+for i in range(2):
+    pde_r = ax[i].plot(param_cond_tes, covars_r[:,:,i,i], color='tab:blue', label='Real')
+    pde_tes = ax[i].plot(param_cond_tes, covars_tes[:,:,i,i], color='tab:orange', label='Predicted')
+    ax[i].set_title(f'{i+1}th Diagonal Element', fontsize=12)
+    ax[i].set_xlabel('Conditional Parameter z')
+    customs = [pde_r[0], pde_tes[0]]
+    ax[i].legend(customs, [pde_r[0].get_label(), pde_tes[0].get_label()], fontsize=10)
+plt.tight_layout() 
+
+
+# specific check
+# GMM parameters at a certain conditional parameter
 weight_t, means_t, covars_t = gmm(param_cond_v[4,:1])#weight_t,
 
 weight_r   = weight_func(param_cond_v[4,0], K)
@@ -96,21 +189,30 @@ covars_r   = covar_func(param_cond_v[4,0], K, D)
 Nr = 100
 data_r = sample_func(weight_r, means_r, covars_r, Nr)
 
-
+# figure. weights of each component at certain condtional parameter
 fig, ax = plt.subplots()
 ax.bar(x=np.arange(K)+1, height=weight_r, alpha=0.5)
 ax.bar(x=np.arange(K)+1, height=weight_t.detach().numpy()[0], alpha=0.5)
 ax.set_title('weights of each component')
+ax.set_xticks(np.arange(3)+1)
+customs = [Line2D([0], [0], marker='o', color='w',
+                        markerfacecolor='k', markersize=5)]
+ax.legend(customs, [f'z={(param_cond_v[4,0].numpy()[0]):.2f}'])
 
 
+# figure. means, and some samples, and learned means at certain condtional parameter
 fig, ax = plt.subplots()
-ax.scatter(*means_r.transpose())
-ax.scatter(*data_r[0].transpose(), marker='.', color='grey', alpha=0.5)
-ax.scatter(*means_t.detach().numpy()[0].transpose())
-ax.set_title('centroid of 3 Components')
-ax.set_xlabel('x1')
-ax.set_ylabel('x2')
-#plt.xlim([100, 160])
+pm_r = ax.scatter(*means_r.transpose(), label='Real')
+pd_r = ax.scatter(*data_r[0].transpose(), marker='.', color='grey', label='Samples (on real)', alpha=0.5)
+pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted')
+ax.set_title('Centroid of 3 Components')
+ax.set_xlabel('Dimension 1')
+ax.set_ylabel('Dimension 2')
+customs = [pm_r, pd_r, pm_t,
+            Line2D([0], [0], marker='o', color='w',
+                    markerfacecolor='k', markersize=5)]
+ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), f'z={(param_cond_v[4,0].numpy()[0]):.2f}'],
+            fontsize=10)
 plt.show()
 
-print(train_loss + log_true.numpy())
+print(f'KL divergense = {train_loss + log_true.numpy()}')
