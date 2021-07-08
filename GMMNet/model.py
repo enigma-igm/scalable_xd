@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.distributions as dist
+from torch.utils.data import WeightedRandomSampler
 mvn = dist.multivariate_normal.MultivariateNormal
 
 
@@ -28,14 +29,14 @@ class GMMNet(nn.Module):
         
         self.covar_network = nn.Sequential(*[nn.Linear(self.vec_dim, self.K*self.D*(self.D+1)//2)])
         
-    def forward(self, data):
+    def forward(self, conditional):
         '''
         data: shape(batch_size, D)
         '''
         
-        B = data.shape[0] # batch size
+        B = conditional.shape[0] # batch size
         
-        embedding = self.embedding_network(data)
+        embedding = self.embedding_network(conditional)
         
         weights   = self.weights_network(embedding)
         #weights   = weights / weights.sum()
@@ -64,3 +65,21 @@ class GMMNet(nn.Module):
         log_prob_b = torch.logsumexp(log_resp, dim=1)
 
         return log_prob_b
+
+    def sample(self, conditional, n_per_conditional=1):
+        
+        weights, means, covars = self.forward(conditional)
+
+        draw = list(WeightedRandomSampler(weights, n_per_conditional))
+        
+        #!!!!!!!!!!!! warning: only valid when batch=1
+        data = mvn(loc=means[:,draw,:], scale_tril=covars[:,draw,:]).sample()
+
+        return data
+            
+
+
+
+
+#github copilot
+        

@@ -1,6 +1,8 @@
 from data import *
 from model import *
 
+import seaborn as sns
+
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.collections import LineCollection
@@ -93,6 +95,7 @@ for n in range(epoch):
         break
     
 
+embed()
 
 # global check
 # conditional parameter covering the training range
@@ -106,7 +109,7 @@ means_tes  = means_tes.detach().numpy()
 covarL_tes = covars_tes.detach().numpy()
 covars_tes = np.matmul(covarL_tes, np.swapaxes(covarL_tes, -2, -1))
 
-# get the real paramters
+# get the true paramters
 weight_r   = np.zeros((len(param_cond_tes), K))
 means_r    = np.zeros((len(param_cond_tes), K, D))
 covars_r   = np.zeros((len(param_cond_tes), K, D, D))
@@ -130,7 +133,7 @@ for i in range(K):
     lc.set_linewidth(2)
     line = ax.add_collection(lc)
 cbar = plt.colorbar(line, ax=ax, aspect=15)
-cbar.set_label('Conditional Parameter z', fontsize=10)
+cbar.set_label('True vs Conditional Parameter z', fontsize=10)
 for i in range(K):
     points = means_tes[:,i,:].reshape(-1, 1, 2)#np.array([x, y]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
@@ -140,6 +143,7 @@ for i in range(K):
     lc.set_linewidth(2)
     line = ax.add_collection(lc)
 cbar = plt.colorbar(line, ax=ax, aspect=15)
+cbar.set_label('Predicted vs Conditional Parameter z', fontsize=10)
 ax.set_xlim(means_tes[:,:,0].min()-0.5, means_tes[:,:,0].max()+0.5)
 ax.set_ylim(means_tes[:,:,1].min()-0.5, means_tes[:,:,1].max()+0.5)
 ax.set_title('Means of Each Component', fontsize=14)
@@ -147,7 +151,7 @@ ax.set_title('Means of Each Component', fontsize=14)
 
 # figure. plot weights vs conditional paramters
 fig, ax = plt.subplots()
-pw_r = ax.plot(param_cond_tes, weight_r, color='tab:blue', label='Real')
+pw_r = ax.plot(param_cond_tes, weight_r, color='tab:blue', label='True')
 pw_tes = ax.plot(param_cond_tes, weight_tes, color='tab:orange', label='Predicted')
 ax.set_xlabel('Conditional Parameter z', fontsize=14)
 ax.set_ylabel('weight', fontsize=14)
@@ -159,9 +163,9 @@ ax.legend(customs, [pw_r[0].get_label(), pw_tes[0].get_label()], fontsize=10)
 # figure. all samples and initial guess of the means
 data_t = data_t.numpy().reshape(-1, 2)
 fig, ax = plt.subplots()
-pd_t = ax.scatter(*data_t.transpose(), marker='.', color='grey', alpha=0.5, label='samples')
+pd_t = ax.scatter(*data_t.transpose(), marker='.', color='grey', alpha=0.5, label='Training Set')
 pd_k = ax.scatter(*means0_t.transpose(), s=80, marker='.', color='tab:orange', label='kmeans centroids')
-ax.set_title('All Samples', fontsize=14)
+ax.set_title('Training Set', fontsize=14)
 ax.set_xlabel('Dimension 1')
 ax.set_ylabel('Dimension 2')
 ax.legend(fontsize=14)
@@ -169,9 +173,9 @@ ax.legend(fontsize=14)
 # figure. Diagonal Element
 fig, ax = plt.subplots(2)
 for i in range(2):
-    pde_r = ax[i].plot(param_cond_tes, covars_r[:,:,i,i], color='tab:blue', label='Real')
+    pde_r = ax[i].plot(param_cond_tes, covars_r[:,:,i,i], color='tab:blue', label='True')
     pde_tes = ax[i].plot(param_cond_tes, covars_tes[:,:,i,i], color='tab:orange', label='Predicted')
-    ax[i].set_title(f'{i+1}th Diagonal Element', fontsize=12)
+    ax[i].set_title(f'{i+1, i+1} Element of the Covariance Matrix', fontsize=12)
     ax[i].set_xlabel('Conditional Parameter z')
     customs = [pde_r[0], pde_tes[0]]
     ax[i].legend(customs, [pde_r[0].get_label(), pde_tes[0].get_label()], fontsize=10)
@@ -186,8 +190,9 @@ weight_r   = weight_func(param_cond_v[4,0], K)
 means_r    = means_func(param_cond_v[4,0], K, D)
 covars_r   = covar_func(param_cond_v[4,0], K, D)
 
-Nr = 100
-data_r = sample_func(weight_r, means_r, covars_r, Nr)
+Nr = 1000
+data_r, _ = sample_func(weight_r, means_r, covars_r, Nr)
+data_t = gmm.sample(param_cond_v[4,:1], Nr).squeeze().detach().numpy()
 
 # figure. weights of each component at certain condtional parameter
 fig, ax = plt.subplots()
@@ -197,22 +202,44 @@ ax.set_title('weights of each component')
 ax.set_xticks(np.arange(3)+1)
 customs = [Line2D([0], [0], marker='o', color='w',
                         markerfacecolor='k', markersize=5)]
-ax.legend(customs, [f'z={(param_cond_v[4,0].numpy()[0]):.2f}'])
+ax.legend(customs, [f'Conditional z={(param_cond_v[4,0].numpy()[0]):.2f}'])
 
-
+'''
 # figure. means, and some samples, and learned means at certain condtional parameter
 fig, ax = plt.subplots()
-pm_r = ax.scatter(*means_r.transpose(), label='Real')
-pd_r = ax.scatter(*data_r[0].transpose(), marker='.', color='grey', label='Samples (on real)', alpha=0.5)
+pm_r = ax.scatter(*means_r.transpose(), label='True')
+pd_r = ax.scatter(*data_r.transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.5)
 pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted')
+pd_t = ax.scatter(*data_t.transpose(), marker='.', color='tab:orange', label='Samples (on model)', alpha=0.5)
 ax.set_title('Centroid of 3 Components')
 ax.set_xlabel('Dimension 1')
 ax.set_ylabel('Dimension 2')
-customs = [pm_r, pd_r, pm_t,
+customs = [pm_r, pd_r, pm_t, pd_t,
             Line2D([0], [0], marker='o', color='w',
                     markerfacecolor='k', markersize=5)]
-ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), f'z={(param_cond_v[4,0].numpy()[0]):.2f}'],
-            fontsize=10)
+ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_r.get_label(),
+                f'Conditional z={(param_cond_v[4,0].numpy()[0]):.2f}'], fontsize=10)
+'''
+
+# figure. means, and some samples, and learned means at certain condtional parameter
+fig, ax = plt.subplots()
+pm_r = ax.scatter(*means_r.transpose(), label='True')
+pd_r = sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', label='Samples (on true)', alpha=0.5)
+pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted')
+pd_t = sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', label='Samples (on true)', alpha=0.5)
+ax.set_title('Centroid of 3 Components')
+ax.set_xlabel('Dimension 1')
+ax.set_ylabel('Dimension 2')
+customs = [pm_r, pd_r, pm_t, pd_t,
+            Line2D([0], [0], marker='o', color='w',
+                    markerfacecolor='k', markersize=5)]
+ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_r.get_label(),
+                f'Conditional z={(param_cond_v[4,0].numpy()[0]):.2f}'], fontsize=10)
+
 plt.show()
+
+
+
+
 
 print(f'KL divergense = {train_loss + log_true.numpy()}')
