@@ -72,8 +72,10 @@ class GMMNet(nn.Module):
 
         draw = list(WeightedRandomSampler(weights, n_per_conditional))
         
-        #!!!!!!!!!!!! warning: only valid when batch=1
-        data = mvn(loc=means[:,draw,:], scale_tril=covars[:,draw,:]).sample()
+        batchsize = conditional.shape[0]
+        means  = means[:, draw][torch.eye(batchsize).to(torch.bool)]
+        covars = covars[:, draw][torch.eye(batchsize).to(torch.bool)]
+        data   = mvn(loc=means, scale_tril=covars).sample()
 
         return data
             

@@ -190,10 +190,6 @@ weight_r   = weight_func(param_cond_v[4,0], K)
 means_r    = means_func(param_cond_v[4,0], K, D)
 covars_r   = covar_func(param_cond_v[4,0], K, D)
 
-Nr = 1000
-data_r, _ = sample_func(weight_r, means_r, covars_r, Nr)
-data_t = gmm.sample(param_cond_v[4,:1], Nr).squeeze().detach().numpy()
-
 # figure. weights of each component at certain condtional parameter
 fig, ax = plt.subplots()
 ax.bar(x=np.arange(K)+1, height=weight_r, alpha=0.5)
@@ -204,42 +200,35 @@ customs = [Line2D([0], [0], marker='o', color='w',
                         markerfacecolor='k', markersize=5)]
 ax.legend(customs, [f'Conditional z={(param_cond_v[4,0].numpy()[0]):.2f}'])
 
-'''
-# figure. means, and some samples, and learned means at certain condtional parameter
-fig, ax = plt.subplots()
-pm_r = ax.scatter(*means_r.transpose(), label='True')
-pd_r = ax.scatter(*data_r.transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.5)
-pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted')
-pd_t = ax.scatter(*data_t.transpose(), marker='.', color='tab:orange', label='Samples (on model)', alpha=0.5)
-ax.set_title('Centroid of 3 Components')
-ax.set_xlabel('Dimension 1')
-ax.set_ylabel('Dimension 2')
-customs = [pm_r, pd_r, pm_t, pd_t,
-            Line2D([0], [0], marker='o', color='w',
-                    markerfacecolor='k', markersize=5)]
-ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_r.get_label(),
-                f'Conditional z={(param_cond_v[4,0].numpy()[0]):.2f}'], fontsize=10)
-'''
+
 
 # figure. means, and some samples, and learned means at certain condtional parameter
-fig, ax = plt.subplots()
-pm_r = ax.scatter(*means_r.transpose(), label='True')
-pd_r = sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', label='Samples (on true)', alpha=0.5)
-pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted')
-pd_t = sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', label='Samples (on true)', alpha=0.5)
-ax.set_title('Centroid of 3 Components')
-ax.set_xlabel('Dimension 1')
-ax.set_ylabel('Dimension 2')
-customs = [pm_r, pd_r, pm_t, pd_t,
-            Line2D([0], [0], marker='o', color='w',
-                    markerfacecolor='k', markersize=5)]
-ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_r.get_label(),
-                f'Conditional z={(param_cond_v[4,0].numpy()[0]):.2f}'], fontsize=10)
+Nr = 1000
+cond_array = [9, 49, 89]
+param_cond_tes = torch.from_numpy(param_cond_tes)
+embed()
+for i in cond_array:
+    data_r, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], Nr)
+    data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr).squeeze().detach().numpy()
+    weight_t, means_t, covars_t = gmm(param_cond_tes[i].unsqueeze(0))
+
+    fig, ax = plt.subplots()
+    pm_r = ax.scatter(*means_tes[i].transpose(), label='True')
+    pd_r = ax.scatter(*data_r.transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.1)
+    sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
+    pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted')
+    sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
+    pd_t = ax.scatter(*data_t.transpose(), marker='.', color='tab:orange', label='Samples (on model)', alpha=0.1)
+    ax.set_title('Centroid of 3 Components')
+    ax.set_xlabel('Dimension 1')
+    ax.set_ylabel('Dimension 2')
+    customs = [pm_r, pd_r, pm_t, pd_t,
+                Line2D([0], [0], marker='o', color='w',
+                        markerfacecolor='k', markersize=5)]
+    ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_r.get_label(),
+                    f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
 
 plt.show()
-
-
-
 
 
 print(f'KL divergense = {train_loss + log_true.numpy()}')
