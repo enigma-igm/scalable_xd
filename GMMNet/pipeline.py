@@ -95,8 +95,6 @@ for n in range(epoch):
         break
     
 
-embed()
-
 # global check
 # conditional parameter covering the training range
 param_cond_tes = np.arange(0, 1, 0.01) + 0.01
@@ -206,7 +204,7 @@ ax.legend(customs, [f'Conditional z={(param_cond_v[4,0].numpy()[0]):.2f}'])
 Nr = 1000
 cond_array = [9, 49, 89]
 param_cond_tes = torch.from_numpy(param_cond_tes)
-embed()
+
 for i in cond_array:
     data_r, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], Nr)
     data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr).squeeze().detach().numpy()

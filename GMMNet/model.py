@@ -78,7 +78,7 @@ class GMMNet(nn.Module):
         data   = mvn(loc=means, scale_tril=covars).sample()
 
         return data
-            
+        
 
 
 
