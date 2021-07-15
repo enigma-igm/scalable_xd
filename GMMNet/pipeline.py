@@ -119,6 +119,17 @@ for i in range(len(param_cond_tes)):
 param_cond_tes = param_cond_tes.numpy()
 
 
+
+# figure. all samples and initial guess of the means
+data_t = data_t.numpy().reshape(-1, 2)
+fig, ax = plt.subplots()
+pd_t = ax.scatter(*data_t.transpose(), marker='.', color='grey', alpha=0.5, label='Training Set')
+pd_k = ax.scatter(*means0_t.transpose(), s=80, marker='.', color='tab:orange', label='kmeans centroids')
+ax.set_title('Training Set', fontsize=14)
+ax.set_xlabel('Dimension 1')
+ax.set_ylabel('Dimension 2')
+ax.legend(fontsize=14)
+
 # figure. plot means vs conditional parameter
 fig, ax = plt.subplots()
 norm = plt.Normalize(param_cond_tes.min(), param_cond_tes.max())
@@ -158,16 +169,6 @@ customs = [pw_r[0], pw_tes[0]]
 ax.legend(customs, [pw_r[0].get_label(), pw_tes[0].get_label()], fontsize=10)
 
 
-# figure. all samples and initial guess of the means
-data_t = data_t.numpy().reshape(-1, 2)
-fig, ax = plt.subplots()
-pd_t = ax.scatter(*data_t.transpose(), marker='.', color='grey', alpha=0.5, label='Training Set')
-pd_k = ax.scatter(*means0_t.transpose(), s=80, marker='.', color='tab:orange', label='kmeans centroids')
-ax.set_title('Training Set', fontsize=14)
-ax.set_xlabel('Dimension 1')
-ax.set_ylabel('Dimension 2')
-ax.legend(fontsize=14)
-
 # figure. Diagonal Element
 fig, ax = plt.subplots(2)
 for i in range(2):
@@ -182,23 +183,6 @@ plt.tight_layout()
 
 # specific check
 # GMM parameters at a certain conditional parameter
-weight_t, means_t, covars_t = gmm(param_cond_v[4,:1])#weight_t,
-
-weight_r   = weight_func(param_cond_v[4,0], K)
-means_r    = means_func(param_cond_v[4,0], K, D)
-covars_r   = covar_func(param_cond_v[4,0], K, D)
-
-# figure. weights of each component at certain condtional parameter
-fig, ax = plt.subplots()
-ax.bar(x=np.arange(K)+1, height=weight_r, alpha=0.5)
-ax.bar(x=np.arange(K)+1, height=weight_t.detach().numpy()[0], alpha=0.5)
-ax.set_title('weights of each component')
-ax.set_xticks(np.arange(3)+1)
-customs = [Line2D([0], [0], marker='o', color='w',
-                        markerfacecolor='k', markersize=5)]
-ax.legend(customs, [f'Conditional z={(param_cond_v[4,0].numpy()[0]):.2f}'])
-
-
 
 # figure. means, and some samples, and learned means at certain condtional parameter
 Nr = 1000
