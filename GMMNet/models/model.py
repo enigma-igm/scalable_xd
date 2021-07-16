@@ -6,7 +6,6 @@ from torch.utils.data import WeightedRandomSampler
 mvn = dist.multivariate_normal.MultivariateNormal
 
 
-
 class GMMNet(nn.Module):
     """Neural network for Gaussian Mixture Model"""
     def __init__(self, 
@@ -93,9 +92,16 @@ class GMMNet(nn.Module):
         weights, means, covars = self.forward(conditional)
         if noise is None:
             noise = torch.zeros_like(covars)
-        
+        elif noise.dim() != covars.dim():  
+            # Typically noise is a single matrix per element in the batch
+            # We need to add this to all components of the GMM, so we'll
+            # unsqueeze the component dimension to make it broadcastable
+            
+            # sloppy, but ok for now.
+            noise = noise[:, None, ...]  # add noise to all components
+
         noisy_covars = covars + noise
-        
+
         log_resp = mvn(loc=means, covariance_matrix=noisy_covars).log_prob(data[:, None, :])
         
         log_resp += torch.log(weights)
