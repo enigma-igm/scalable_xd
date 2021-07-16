@@ -1,3 +1,4 @@
+from numpy.core.fromnumeric import mean
 import torch
 import torch.nn as nn
 import torch.distributions as dist
@@ -12,26 +13,48 @@ class GMMNet(nn.Module):
                  n_components, 
                  data_dim, 
                  conditional_dim, 
-                 means0, 
+                 cluster_centroids, 
                  vec_dim=128,
+                 num_embedding_layers=3,
+                 num_weights_layers=1,
+                 num_means_layers=1,
+                 num_covar_layers=1,
+                 activation='PReLU',
                  ):
         super().__init__()
         self.n_components = n_components
         self.data_dim = data_dim
         self.conditional_dim = conditional_dim
-        self.means0 = means0
+        self.cluster_centroids = cluster_centroids
         self.vec_dim = vec_dim
+        self.num_embedding_layers = num_embedding_layers
+        self.num_weights_layers = num_weights_layers
+        self.num_means_layers = num_means_layers
+        self.num_covar_layers = num_covar_layers
+        self.activation = getattr(nn, activation)
         
-        self.embedding_network = nn.Sequential(*[nn.Linear(self.conditional_dim, self.vec_dim),
-                                                 nn.PReLU(),
-                                                 nn.Linear(self.vec_dim, self.vec_dim)])
+        embedding_layers = [nn.Linear(self.conditional_dim, self.vec_dim), self.activation()]
+        for _ in range(num_embedding_layers - 1):
+            embedding_layers += [nn.Linear(self.vec_dim, self.vec_dim), self.activation()]
+        self.embedding_network = nn.Sequential(*embedding_layers)
        
-        self.weights_network = nn.Sequential(*[nn.Linear(self.vec_dim, self.n_components),
-                                               nn.Softmax(-1)])
+        weights_layers = []
+        for _ in range(num_weights_layers - 1):
+            weights_layers += [nn.Linear(self.vec_dim, self.vec_dim), self.activation()]
+        weights_layers += [nn.Linear(self.vec_dim, self.n_components), nn.Softmax(-1)]
+        self.weights_network = nn.Sequential(*weights_layers)
         
-        self.means_network = nn.Sequential(*[nn.Linear(self.vec_dim, self.n_components*self.data_dim)])
+        means_layers = []
+        for _ in range(num_means_layers - 1):
+            means_layers += [nn.Linear(self.vec_dim, self.vec_dim), self.activation()]
+        means_layers += [nn.Linear(self.vec_dim, self.n_components*self.data_dim)]
+        self.means_network = nn.Sequential(*means_layers)
         
-        self.covar_network = nn.Sequential(*[nn.Linear(self.vec_dim, self.n_components*self.data_dim*(self.data_dim+1)//2)])
+        covar_layers = []
+        for _ in range(num_covar_layers - 1):
+            covar_layers += [nn.Linear(self.vec_dim, self.vec_dim), self.activation()]
+        covar_layers += [nn.Linear(self.vec_dim, self.n_components*self.data_dim*(self.data_dim+1)//2)]
+        self.covar_network = nn.Sequential(*covar_layers)
         
     def forward(self, conditional):
         '''
@@ -48,7 +71,7 @@ class GMMNet(nn.Module):
         
         # calculate means
         means = self.means_network(embedding)
-        means = means.reshape(-1, self.n_components, self.data_dim) + self.means0
+        means = means.reshape(-1, self.n_components, self.data_dim) + self.cluster_centroids
         
         # calculate cholesky matrix
         covars_ele = self.covar_network(embedding)
