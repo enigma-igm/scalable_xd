@@ -1,5 +1,5 @@
-from data import *
-from model import *
+from data.toy import *
+from models.model import *
 
 import seaborn as sns
 
