@@ -73,8 +73,6 @@ param_cond_t = chunck(param_cond_t, batch_size)
 param_cond_v = chunck(param_cond_v, batch_size)
 
 
-
-
 epoch = 250
 
 for n in range(epoch):
