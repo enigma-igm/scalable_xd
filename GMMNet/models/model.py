@@ -23,8 +23,8 @@ class GMMNet(nn.Module):
         self.vec_dim = vec_dim
         
         self.embedding_network = nn.Sequential(*[nn.Linear(self.conditional_dim, self.vec_dim),
-                                               nn.PReLU(),
-                                                nn.Linear(self.vec_dim, self.vec_dim)])
+                                                 nn.PReLU(),
+                                                 nn.Linear(self.vec_dim, self.vec_dim)])
        
         self.weights_network = nn.Sequential(*[nn.Linear(self.vec_dim, self.n_components),
                                                nn.Softmax(-1)])

@@ -1,5 +1,6 @@
 from data.toy import *
 from models.model import *
+from diagnostics.toy import all_figures
 
 import seaborn as sns
 
@@ -43,7 +44,8 @@ log_true = 0
 for i, data_i in enumerate(data_t):
     
     log_resp = mvn(loc=torch.from_numpy(means_t[i][None, :]),
-                   covariance_matrix=torch.from_numpy(covars_t[i][None, :])).log_prob(torch.from_numpy(data_i[None, None, :]))
+                   covariance_matrix=torch.from_numpy(covars_t[i][None, :])
+                   ).log_prob(torch.from_numpy(data_i[None, None, :]))
 
     log_resp += torch.log(torch.ones(1, K)/K)
 
@@ -212,5 +214,6 @@ for i in cond_array:
 
 plt.show()
 
+all_figures(K, gmm, sample_func, data_t, means0_t, weight_tes, covars_tes, means_tes, param_cond_tes, means_r, covars_r, weight_r)
 
 print(f'KL divergense = {train_loss + log_true.numpy()}')
