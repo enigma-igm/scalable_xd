@@ -109,3 +109,4 @@ venv.bak/
 # MacOs
 */.DS_Store
 .DS_Store
+GMMNet/tests/data/MNIST/raw/
