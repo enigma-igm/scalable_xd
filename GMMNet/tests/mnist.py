@@ -1,12 +1,10 @@
 import torch
 from torch.utils.data import DataLoader, TensorDataset
+from torchvision.datasets import MNIST
 import numpy as np
 import matplotlib.pyplot as plt
 
-from sklearn.datasets import load_digits
-from sklearn.neighbors import KernelDensity
 from sklearn.decomposition import PCA
-from sklearn.model_selection import GridSearchCV
 from sklearn.cluster import KMeans
 
 
@@ -16,32 +14,44 @@ import sys
 sys.path.append("..") # Adds higher directory to python modules path.
 from models.model import GMMNet
 
-# load the data
-digits = load_digits().data
-labels = load_digits().target
 
-n_clusters = 20    # number of gaussian components 
-n_pca_components = 15  # dimension of the PCA subspace
+
+# load the data
+mnist = MNIST("data/", train=True, download=True)
+
+digits = mnist.data.flatten(-2, -1)
+labels = mnist.targets
+
+
+n_clusters = 5    # number of gaussian components 
+n_pca_components = 25  # dimension of the PCA subspace
+sigma = 3e-1
+
 
 # project the 64-dimensional data to a lower dimension
 pca = PCA(n_components=n_pca_components, whiten=True)
-data = pca.fit_transform(digits)
+data = pca.fit_transform(digits.numpy())
 # add homoscedastic noise to the data
 # data = np.random.randn(*data.shape)
 
 data = torch.tensor(data).float()
-labels = torch.tensor(labels).unsqueeze(1).float()
-# normalize labels
+labels = labels.unsqueeze(1).float()
+# normalize labels and data
 labels_mean = labels.mean()
 labels_std = labels.std()
 labels = (labels - labels_mean)/labels_std
-# synthesize homoscedastic noise
-data = data + torch.randn_like(data)
-noise_covar = torch.diag(torch.ones(n_pca_components))
+
+data = data + torch.randn_like(data)*sigma
+data_mean = data.mean()
+data_std = data.std()
+data = (data - data_mean)/data_std
+normalized_sigma = sigma/data_std
+# synthesize and add homoscedastic noise
+noise_covar = torch.diag(torch.ones(n_pca_components))*(normalized_sigma**2)
 noise_covars = torch.stack([noise_covar for _ in range(data.shape[0])])
 
 # kmeans to classify each data point
-kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(data)
+kmeans = KMeans(n_clusters=n_clusters, random_state=12321).fit(data)
 
 # initialization
 xd_gmm = GMMNet(n_components=n_clusters, 
@@ -76,6 +86,7 @@ train_loader = DataLoader(TensorDataset(data, labels, noise_covars), batch_size=
 
 epoch = 150
 try:
+    print(f"Training for {epoch} epochs...")
     for n in range(epoch):
         xd_train_loss = 0
         basic_train_loss = 0
@@ -103,6 +114,7 @@ try:
         basic_scheduler.step(basic_train_loss)
 
 except KeyboardInterrupt:
+    print(f"Training interrupted at epoch {n+1}")
     pass
 
 
@@ -114,37 +126,42 @@ def plot_digits(sample_digit=0):
         xd_data = xd_gmm.sample(context)
         basic_data = basic_gmm.sample(context)
         
-    noisy_data = pca.inverse_transform(data.numpy())
-    xd_data = pca.inverse_transform(xd_data.numpy())
-    basic_data = pca.inverse_transform(basic_data.numpy())
+    xd_data = pca.inverse_transform((xd_data*data_std + data_mean).numpy())
+    basic_data = pca.inverse_transform((basic_data*data_std + data_mean).numpy())
 
     # turn data into a 4x11 grid
     xd_data = xd_data.reshape((4, 11, -1))
     basic_data = basic_data.reshape((4, 11, -1))
-    # real_data = digits[:44].reshape((4, 11, -1))
-    real_data = noisy_data[:44].reshape((4, 11, -1))
-
+    noisy_data = pca.inverse_transform((data*data_std + data_mean).numpy())
+    noisy_data = noisy_data[:44].reshape((4, 11, -1))
+    real_data = digits[:44]
+    real_data = pca.inverse_transform(pca.transform(real_data.numpy())).reshape((4, 11, -1))
 
     # plot real digits and resampled digits
-    fig, ax = plt.subplots(14, 11, subplot_kw=dict(xticks=[], yticks=[]))
+    fig, ax = plt.subplots(19, 11, subplot_kw=dict(xticks=[], yticks=[]))
     for j in range(11):
         ax[4, j].set_visible(False)
         ax[9, j].set_visible(False)
+        ax[14, j].set_visible(False)
         for i in range(4):
-            im = ax[i, j].imshow(real_data[i, j].reshape((8, 8)),
+            im = ax[i, j].imshow(real_data[i, j].reshape((28, 28)),
                                 cmap=plt.cm.binary, interpolation='nearest')
             im.set_clim(0, 16)
-            im = ax[i + 5, j].imshow(basic_data[i, j].reshape((8, 8)),
+            im = ax[i + 5, j].imshow(noisy_data[i, j].reshape((28, 28)),
+                                cmap=plt.cm.binary, interpolation='nearest')
+            im.set_clim(0, 16)
+            im = ax[i + 10, j].imshow(basic_data[i, j].reshape((28, 28)),
                                     cmap=plt.cm.binary, interpolation='nearest')
             im.set_clim(0, 16)
-            im = ax[i + 10, j].imshow(xd_data[i, j].reshape((8, 8)),
+            im = ax[i + 15, j].imshow(xd_data[i, j].reshape((28, 28)),
                                     cmap=plt.cm.binary, interpolation='nearest')
             im.set_clim(0, 16)
 
     ax[0, 5].set_title('Selection from the input data')
-    ax[5, 5].set_title(f'Conditional samples drawn from basic model (context={int(sample_digit)})')
-    ax[10, 5].set_title(f'Conditional samples drawn from xd model (context={int(sample_digit)})')
+    ax[5, 5].set_title(f'Noisy data (used for training)')
+    ax[10, 5].set_title(f'Conditional samples drawn from basic model (context={int(sample_digit)})')
+    ax[15, 5].set_title(f'Conditional samples drawn from xd model (context={int(sample_digit)})')
 
-    plt.show()
 
-plot_digits(sample_digit=0)
+plot_digits(sample_digit=3)
+plt.show()
