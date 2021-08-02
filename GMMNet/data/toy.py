@@ -5,7 +5,7 @@ import numpy as np
 # all functions use simple linear transformations to a given cond vector. The transformations are fixed by given random seeds.
 def weight_func(param_cond, K):
     '''
-    To generate the weights of the components given the conditiontial parameters.
+    To generate the weights of the Gaussian components given the conditiontial parameters.
     '''
     D_cond = len(param_cond)
     np.random.seed(9)
@@ -21,19 +21,19 @@ def weight_func(param_cond, K):
 
 def means_func(param_cond, K, D):
     '''
-    To generate the means of the components given the conditiontial parameters.
+    To generate the means of the Gaussian components given the conditiontial parameters.
     '''
     D_cond = len(param_cond)
     np.random.seed(13)
     matr = np.random.permutation(K*D*D_cond*10)[:K*D*D_cond].reshape(K, D, D_cond) / (K*D)
     matr -= matr.mean()
-    means0 = np.dot(matr, (param_cond)**1.2)
+    means0 = np.dot(matr, param_cond**1.2)
     
     return means0
 
 def covar_func(param_cond, K, D):
     '''
-    To generate the covariance of the components given the conditiontial parameters.
+    To generate the covariance of the Gaussian components given the conditiontial parameters.
     '''
 
     D_cond = len(param_cond)
@@ -58,7 +58,15 @@ def covar_func(param_cond, K, D):
 
     return covars0
 
-def sample_func(weights0, means0, covars0, N=1):
+
+def noise_func(param_cond, D):
+    '''
+    To generate the noise matrix. Diagonal and identical so far.
+    '''
+    return (np.eye(D)*0.3)
+
+
+def sample_func(weights0, means0, covars0, noise=None, N=1):
     '''
     Random sampling given weights, means and covariance.
     '''
@@ -69,11 +77,14 @@ def sample_func(weights0, means0, covars0, N=1):
     np.random.seed()
     draw = np.random.choice(np.arange(K), N, p=weights0) # which component each data is from
     
+    if noise is None:
+        noise = np.zeros_like(covars0[0, :, :])
+
     for j in range(N):
         # the real data
         X[j, :] = np.random.multivariate_normal(
             mean=means0[draw[j], :],
-            cov=covars0[draw[j], :, :]
+            cov=covars0[draw[j], :, :] + noise
         )
         
     # shuffle the data
@@ -86,12 +97,15 @@ def sample_func(weights0, means0, covars0, N=1):
     return X_train, draw
 
 
-def data_load(N, K, D, D_cond):
-
+def data_load(N, K, D, D_cond, noisy=True):
+    '''
+    General data loader.
+    '''
     param_cond = np.zeros((N, D_cond))
     weights = np.zeros((N, K))
     means   = np.zeros((N, K, D))
     covars  = np.zeros((N, K, D, D))
+    noise   = np.zeros((N, D, D))
     draw    = np.zeros(N)
     data    = np.zeros((N, D))
 
@@ -103,6 +117,12 @@ def data_load(N, K, D, D_cond):
         weights[i]    = weight_func(param_cond[i], K)
         means[i]      = means_func(param_cond[i], K, D)
         covars[i]     = covar_func(param_cond[i], K, D)
-        data[i], draw[i] = sample_func(weights[i], means[i], covars[i])
 
-    return (param_cond, weights, means, covars, data, draw)
+        if noisy is True:
+            noise[i]      = noise_func(param_cond[i], D)
+            data[i], draw[i] = sample_func(weights[i], means[i], covars[i], noise=noise[i])
+
+        if noisy is False:
+            data[i], draw[i] = sample_func(weights[i], means[i], covars[i])
+
+    return (param_cond, weights, means, covars, data, noise, draw)

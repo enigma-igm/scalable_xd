@@ -1,3 +1,4 @@
+from GMMNet.data.toy import noise_func
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -17,8 +18,9 @@ def all_figures(K,
                 param_cond_tes, 
                 means_r, 
                 covars_r, 
-                weight_r, 
+                weight_r
                 ):
+    
     # figure. all samples and initial guess of the means
     data_t = data_t.numpy().reshape(-1, 2)
     fig, ax = plt.subplots()
@@ -54,6 +56,8 @@ def all_figures(K,
     cbar.set_label('Predicted vs Conditional Parameter z', fontsize=10)
     ax.set_xlim(means_tes[:,:,0].min()-0.5, means_tes[:,:,0].max()+0.5)
     ax.set_ylim(means_tes[:,:,1].min()-0.5, means_tes[:,:,1].max()+0.5)
+    ax.set_xlabel('Dimension 1')
+    ax.set_ylabel('Dimension 2')
     ax.set_title('Means of Each Component', fontsize=14)
 
 
@@ -68,7 +72,7 @@ def all_figures(K,
     ax.legend(customs, [pw_r[0].get_label(), pw_tes[0].get_label()], fontsize=10)
 
 
-    # figure. Diagonal Element
+    # figure. Diagonal Element vs conditional parameters
     fig, ax = plt.subplots(2)
     for i in range(2):
         pde_r = ax[i].plot(param_cond_tes, covars_r[:,:,i,i], color='tab:blue', label='True')
@@ -84,30 +88,62 @@ def all_figures(K,
     # GMM parameters at a certain conditional parameter
 
     # figure. means, and some samples, and learned means at certain condtional parameter
-    Nr = 1000
-    cond_array = [9, 49, 89]
+    Nr = 10000
+    cond_array = [9, 49, 89] # cond = 0.1, 0.5, 0.9
     param_cond_tes = torch.from_numpy(param_cond_tes)
 
+    # noisy observation vs predition + noise
     for i in cond_array:
-        data_r, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], Nr)
-        data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr).squeeze().detach().numpy()
+        noise     = noise_func(param_cond_tes[i], means_tes.shape[-1])
+        data_r, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], noise, Nr)
+        data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr, torch.FloatTensor(noise).unsqueeze(0)).squeeze().detach().numpy()
         weight_t, means_t, covars_t = gmm(param_cond_tes[i].unsqueeze(0))
-
+        
         fig, ax = plt.subplots()
-        pm_r = ax.scatter(*means_tes[i].transpose(), label='True')
-        pd_r = ax.scatter(*data_r.transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.1)
+        pm_r = ax.scatter(*means_tes[i].transpose(), label='True Means')
+        pd_r = ax.scatter(*data_r[::200].transpose(), marker='.', color='tab:blue', label='Observations', alpha=0.2)
         sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
-        pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted')
+        pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
         sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
-        pd_t = ax.scatter(*data_t.transpose(), marker='.', color='tab:orange', label='Samples (on model)', alpha=0.1)
-        ax.set_title('Centroid of 3 Components')
+        pd_t = ax.scatter(*data_t[::200].transpose(), marker='.', color='tab:orange', label='Predictions + Noise', alpha=0.2)
+        ax.set_title('Noisy Observation vs Prediction with Noise')
         ax.set_xlabel('Dimension 1')
         ax.set_ylabel('Dimension 2')
         customs = [pm_r, pd_r, pm_t, pd_t,
                     Line2D([0], [0], marker='o', color='w',
                             markerfacecolor='k', markersize=5)]
-        ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_r.get_label(),
+        ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_t.get_label(),
+                        f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
+
+    # noiseless data vs deconv data
+    for i in cond_array:
+        #noise     = noise_func(param_cond_tes[i], means_tes.shape[-1])
+        data_r, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], N=Nr)
+        data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr).squeeze().detach().numpy()
+        weight_t, means_t, covars_t = gmm(param_cond_tes[i].unsqueeze(0))
+
+        fig, ax = plt.subplots()
+        pm_r = ax.scatter(*means_tes[i].transpose(), label='True Means')
+        pd_r = ax.scatter(*data_r[::200].transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.2)
+        sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
+        pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
+        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
+        pd_t = ax.scatter(*data_t[::200].transpose(), marker='.', color='tab:orange', label='Predictions', alpha=0.2)
+        ax.set_title('True Model vs Deconvolved Prediction')
+        ax.set_xlabel('Dimension 1')
+        ax.set_ylabel('Dimension 2')
+        customs = [pm_r, pd_r, pm_t, pd_t,
+                    Line2D([0], [0], marker='o', color='w',
+                            markerfacecolor='k', markersize=5)]
+        ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_t.get_label(),
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
 
     plt.show()
+    '''
+    context
+    z = brightness
+    y = flux1
+    x = flux2
+    '''
+
 

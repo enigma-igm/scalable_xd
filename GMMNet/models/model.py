@@ -85,11 +85,14 @@ class GMMNet(nn.Module):
         
         # calculate covariance matrix
         covars = torch.matmul(scale_tril, scale_tril.transpose(-2, -1))
+        
         return weights, means, covars
     
     
     def log_prob_b(self, data, conditional, noise=None):
+
         weights, means, covars = self.forward(conditional)
+
         if noise is None:
             noise = torch.zeros_like(covars)
         elif noise.dim() != covars.dim():  
@@ -111,16 +114,29 @@ class GMMNet(nn.Module):
         return log_prob_b
 
 
-    def sample(self, conditional, n_per_conditional=1):
+    def sample(self, conditional, n_per_conditional=1, noise=None):
         
         weights, means, covars = self.forward(conditional)
 
-        draw = list(WeightedRandomSampler(weights, n_per_conditional))
-        
         batchsize = conditional.shape[0]
+        draw = list(WeightedRandomSampler(weights, n_per_conditional))
         means  = means[:, draw][torch.eye(batchsize).to(torch.bool)]
         covars = covars[:, draw][torch.eye(batchsize).to(torch.bool)]
-        data   = mvn(loc=means, covariance_matrix=covars).sample()
+
+        if noise is None:
+            noise = torch.zeros_like(covars)
+        elif noise.dim() != covars.dim():  
+            # Typically noise is a single matrix per element in the batch
+            # We need to add this to all components of the GMM, so we'll
+            # unsqueeze the component dimension to make it broadcastable
+            
+            # sloppy, but ok for now.
+            noise = noise[:, None, ...]  # add noise to all components
+
+        #noise = noise.repeat(n_per_conditional, 1)
+
+        noisy_covars = covars + noise
+        data   = mvn(loc=means, covariance_matrix=noisy_covars).sample()
 
         return data
         
