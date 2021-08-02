@@ -133,8 +133,3 @@ noise_t = noise_t.reshape(-1,D,D).numpy()
 all_figures(K, gmm, sample_func, data_t, means0_t, weight_tes, covars_tes, means_tes, param_cond_tes, means_r, covars_r, weight_r)
 
 print(f'KL divergense = {train_loss + log_true.numpy()}')
-'''
-noisy data  vs noiseless data ?
-noiseless data vs deconv predicted 
-noisy data  vs noisy predicted
-'''

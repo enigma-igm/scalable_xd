@@ -4,9 +4,15 @@ import numpy as np
 # the assumed functions
 # all functions use simple linear transformations to a given cond vector. The transformations are fixed by given random seeds.
 def weight_func(param_cond, K):
-    '''
-    To generate the weights of the Gaussian components given the conditiontial parameters.
-    '''
+    """To generate the weights of the Gaussian components given the conditiontial parameters.
+
+    Args:
+        param_cond (array): conditional parameter that determines the noise function. 1D array.
+        K (int): Number of Gaussian components (how many Gaussians).
+
+    Returns:
+        array: The weight of each Gaussian component, add up to unity. 1D array, lenght K. 
+    """
     D_cond = len(param_cond)
     np.random.seed(9)
     matr = np.random.permutation(K*D_cond*10)[:D_cond].reshape(D_cond) / (K*D_cond*5)
@@ -20,9 +26,16 @@ def weight_func(param_cond, K):
 
 
 def means_func(param_cond, K, D):
-    '''
-    To generate the means of the Gaussian components given the conditiontial parameters.
-    '''
+    """To generate the means of the Gaussian components given the conditiontial parameters.
+
+    Args:
+        param_cond (array): conditional parameter that determines the noise function. 1D array.
+        K (int): Number of Gaussian components (how many Gaussians).
+        D (int): Dimension of data.
+
+    Returns:
+        narray: The means of each Gaussian component. KxD array.
+    """
     D_cond = len(param_cond)
     np.random.seed(13)
     matr = np.random.permutation(K*D*D_cond*10)[:K*D*D_cond].reshape(K, D, D_cond) / (K*D)
@@ -32,9 +45,16 @@ def means_func(param_cond, K, D):
     return means0
 
 def covar_func(param_cond, K, D):
-    '''
-    To generate the covariance of the Gaussian components given the conditiontial parameters.
-    '''
+    """To generate the covariance of the Gaussian components given the conditiontial parameters.
+
+    Args:
+        param_cond (array): conditional parameter that determines the noise function. 1D array.
+        K (int): Number of Gaussian components (how many Gaussians).
+        D (int): Dimension of data.
+
+    Returns:
+        narray: Covariance matrices of the Gaussian mixture model. KxDxD array.
+    """
 
     D_cond = len(param_cond)
     
@@ -60,16 +80,31 @@ def covar_func(param_cond, K, D):
 
 
 def noise_func(param_cond, D):
-    '''
-    To generate the noise matrix. Diagonal and identical so far.
-    '''
+    """To generate the noise matrix. Diagonal and identical so far.
+
+    Args:
+        param_cond (array): conditional parameter that determines the noise function. 1D array..
+        D (int): Dimension of data.
+
+    Returns:
+        narray: DxD noise array.
+    """
     return (np.eye(D)*0.3)
 
 
 def sample_func(weights0, means0, covars0, noise=None, N=1):
-    '''
-    Random sampling given weights, means and covariance.
-    '''
+    """Random sampling from a Gaussian mixture distribution.
+
+    Args:
+        weights0 (array): The weight of each Gaussian component, length K.
+        means0 (narray): The means of each Gaussian component, shape KxD.
+        covars0 (narray): Covariance matrices of the Gaussian mixture model, shape KxDxD.
+        noise (narray, optional): The noise matrix, shape DxD. Defaults to None.
+        N (int, optional): Size of samples. Defaults to 1.
+
+    Returns:
+        (narray, array): Samples and the index of which Gausssian component the sample belongs to. The sample has shape NxD, and the index has length N.
+    """
 
     K = len(weights0)
     D = len(means0[0])
@@ -97,10 +132,19 @@ def sample_func(weights0, means0, covars0, noise=None, N=1):
     return X_train, draw
 
 
-def data_load(N, K, D, D_cond, noisy=True):
-    '''
-    General data loader.
-    '''
+def data_load(N, K, D, D_cond, noisy=False):
+    """General data loader.
+
+    Args:
+        N (int): Size of dataset.
+        K (int): Number of Gaussian components (how many Gaussians).
+        D (int): Dimension of data.
+        D_cond (int): Dimension of conditional parameter.
+        noisy (bool, optional): Whether add noise or not. Defaults to False.
+
+    Returns:
+        (narray, narray, narray, narray, narray, narray, array): Conditional parameters, shape NxD. Weights, shape NxK. Means, shape KxD. Covariance matrices, shape NxKxDxD. Noise matrices, shape NxDxD (is zeros if noisy=False). Index indicating which component the data belong to, length N.
+    """
     param_cond = np.zeros((N, D_cond))
     weights = np.zeros((N, K))
     means   = np.zeros((N, K, D))
