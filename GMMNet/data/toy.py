@@ -79,7 +79,7 @@ def covar_func(param_cond, K, D):
     return covars0
 
 
-def noise_func(param_cond, D):
+def noise_func(param_cond, D, sigma_d=1, sigma_l=0):
     """To generate the noise matrix. Diagonal and identical so far.
 
     Args:
@@ -97,9 +97,9 @@ def noise_func(param_cond, D):
     l_idx = np.tril_indices(D, -1)
 
     np.random.seed()
-    noise[d_idx] = np.random.rand(D) / 2
+    noise[d_idx] = np.random.rand(D) * sigma_d
     np.random.seed()
-    noise[l_idx] = np.random.rand(int(D*(D-1)/2)) / 4
+    noise[l_idx] = np.random.rand(int(D*(D-1)/2)) * sigma_l
     noise = np.matmul(noise, np.transpose(noise))
 
     return noise
@@ -176,7 +176,7 @@ def data_load(N, K, D, D_cond, noisy=False):
         covars[i]     = covar_func(param_cond[i], K, D)
 
         if noisy is True:
-            noise[i]      = noise_func(param_cond[i], D)
+            noise[i]      = noise_func(param_cond[i], D, sigma_d=0.5, sigma_l=0.25)
             data[i], draw[i] = sample_func(weights[i], means[i], covars[i], noise=noise[i])
 
         if noisy is False:
