@@ -7,19 +7,49 @@ import numpy as np
 import torch
 
 
-def all_figures(K, 
-                gmm, 
-                sample_func,                
+def all_figures(K,
+                D,
+                weight_func,
+                means_func,
+                covar_func,
+                sample_func,
+                gmm,              
                 data_t, 
-                means0_t, 
-                weight_tes, 
-                covars_tes, 
-                means_tes, 
-                param_cond_tes, 
-                means_r, 
-                covars_r, 
-                weight_r
+                means0_t
                 ):
+    """ All figures to show the performances of our network.
+
+    Args:
+        K (int): Number of Gaussian components (how many Gaussians).
+        D (int): Dimension of data.
+        sample_func (function): Random sampling from a Gaussian mixture distribution. See data/toy.py.
+        gmm (class): Neural network for Gaussian Mixture Model. See model/model.py
+        data_t ([type]): [description]
+        means0_t ([type]): [description]
+    """
+
+
+    # global check
+    # conditional parameter covering the training range
+    param_cond_tes = np.arange(0, 1, 0.01) + 0.01
+    param_cond_tes = torch.FloatTensor(param_cond_tes.reshape(-1,1))
+
+    # derive the trained parameters
+    weight_tes, means_tes, covars_tes = gmm(param_cond_tes)
+    weight_tes = weight_tes.detach().numpy()
+    means_tes  = means_tes.detach().numpy()
+    covars_tes = covars_tes.detach().numpy()
+
+    param_cond_tes = param_cond_tes.numpy()
+
+    # derive the true paramters
+    weight_r   = np.zeros((len(param_cond_tes), K))
+    means_r    = np.zeros((len(param_cond_tes), K, D))
+    covars_r   = np.zeros((len(param_cond_tes), K, D, D))
+    for i in range(len(param_cond_tes)):
+        weight_r[i]   = weight_func(param_cond_tes[i], K)
+        means_r[i]    = means_func(param_cond_tes[i], K, D)
+        covars_r[i]   = covar_func(param_cond_tes[i], K, D)
     
     # figure. all samples and initial guess of the means
     data_t = data_t.numpy().reshape(-1, 2)
@@ -139,11 +169,5 @@ def all_figures(K,
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
 
     plt.show()
-    '''
-    context
-    z = brightness
-    y = flux1
-    x = flux2
-    '''
 
 

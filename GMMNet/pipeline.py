@@ -27,8 +27,8 @@ N_t = 10000
 N_v = N_t//5
 
 # load training and validation data and parameters
-param_cond_t, weights_t, means_t, covars_t, data_t, noise_t, draw_t = data_load(N_t, K, D, D_cond)
-param_cond_v, weights_v, means_v, covars_v, data_v, noise_v, draw_v = data_load(N_v, K, D, D_cond)
+param_cond_t, weights_t, means_t, covars_t, data_t, noise_t, draw_t = data_load(N_t, K, D, D_cond, noisy=True)
+param_cond_v, weights_v, means_v, covars_v, data_v, noise_v, draw_v = data_load(N_v, K, D, D_cond, noisy=True)
 
 
 # kmeans to classify each data point. The means0 serves as the origin of the means.
@@ -54,7 +54,7 @@ for i, data_i in enumerate(data_t):
                    covariance_matrix=torch.from_numpy(covars_t[i][None, :])
                    ).log_prob(torch.from_numpy(data_i[None, None, :]))
 
-    log_resp += torch.log(torch.ones(1, K)/K)
+    log_resp += torch.log(torch.from_numpy(weights_t[i]))
 
     log_prob = torch.logsumexp(log_resp, dim=1)
     
@@ -107,29 +107,7 @@ for n in range(epoch):
         break
     
 
-# global check
-# conditional parameter covering the training range
-param_cond_tes = np.arange(0, 1, 0.01) + 0.01
-param_cond_tes = torch.FloatTensor(param_cond_tes.reshape(-1,1))
 
-# derive the trained parameters
-weight_tes, means_tes, covars_tes = gmm(param_cond_tes)
-weight_tes = weight_tes.detach().numpy()
-means_tes  = means_tes.detach().numpy()
-covars_tes = covars_tes.detach().numpy()
-
-param_cond_tes = param_cond_tes.numpy()
-
-# derive the true paramters
-weight_r   = np.zeros((len(param_cond_tes), K))
-means_r    = np.zeros((len(param_cond_tes), K, D))
-covars_r   = np.zeros((len(param_cond_tes), K, D, D))
-for i in range(len(param_cond_tes)):
-    weight_r[i]   = weight_func(param_cond_tes[i], K)
-    means_r[i]    = means_func(param_cond_tes[i], K, D)
-    covars_r[i]   = covar_func(param_cond_tes[i], K, D)
-
-noise_t = noise_t.reshape(-1,D,D).numpy()
-all_figures(K, gmm, sample_func, data_t, means0_t, weight_tes, covars_tes, means_tes, param_cond_tes, means_r, covars_r, weight_r)
+all_figures(K, D, weight_func, means_func, covar_func, sample_func, gmm, data_t, means0_t)
 
 print(f'KL divergense = {train_loss + log_true.numpy()}')

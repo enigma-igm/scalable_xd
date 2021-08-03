@@ -132,8 +132,7 @@ class GMMNet(nn.Module):
             
             # sloppy, but ok for now.
             noise = noise[:, None, ...]  # add noise to all components
-
-        #noise = noise.repeat(n_per_conditional, 1)
+        
 
         noisy_covars = covars + noise
         data   = mvn(loc=means, covariance_matrix=noisy_covars).sample()

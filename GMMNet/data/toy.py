@@ -74,7 +74,7 @@ def covar_func(param_cond, K, D):
     matrL[:, d_idx] = l_diag + (0.1)**0.5
     matrL[:, l_idx[0], l_idx[1]] = l_lower
     
-    covars0 =(np.matmul(matrL, np.swapaxes(matrL, -2, -1)))
+    covars0 = np.matmul(matrL, np.swapaxes(matrL, -2, -1))
 
     return covars0
 
@@ -89,7 +89,20 @@ def noise_func(param_cond, D):
     Returns:
         narray: DxD noise array.
     """
-    return (np.eye(D)*0.3)
+    #noise = np.eye(D)*0.3
+    
+    noise = np.zeros((D,D))
+
+    d_idx = np.eye(D).astype('bool')
+    l_idx = np.tril_indices(D, -1)
+
+    np.random.seed()
+    noise[d_idx] = np.random.rand(D) / 2
+    np.random.seed()
+    noise[l_idx] = np.random.rand(int(D*(D-1)/2)) / 4
+    noise = np.matmul(noise, np.transpose(noise))
+
+    return noise
 
 
 def sample_func(weights0, means0, covars0, noise=None, N=1):
