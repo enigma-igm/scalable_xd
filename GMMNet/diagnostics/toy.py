@@ -182,14 +182,13 @@ def all_figures(K,
         noise = noise[None,:].repeat(Nr,axis=0)
         lambda1, lambda2, theta = covars_ellipse(noise)
         add_ellipse(ax, data_r[::200], lambda1[::200], lambda2[::200], theta[::200], color='tab:blue')
-        sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
+        sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5, bw_adjust=.2)
 
         pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
         pd_t = ax.scatter(*data_t[::200].transpose(), marker='.', color='tab:orange', label='Predictions + Noise', alpha=0.2)
         lambda1, lambda2, theta = covars_ellipse(noise)
         add_ellipse(ax, data_t[::200], lambda1[::200], lambda2[::200], theta[::200], color='tab:orange')
-        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
-
+        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5, bw_adjust=.2)
 
         ax.set_title('Noisy Observation vs Prediction with Noise')
         ax.set_xlabel('Dimension 1')
@@ -210,12 +209,15 @@ def all_figures(K,
         weight_t, means_t, covars_t = gmm(param_cond_tes[i].unsqueeze(0))
 
         fig, ax = plt.subplots()
+
         pm_r = ax.scatter(*means_tes[i].transpose(), label='True Means')
         pd_r = ax.scatter(*data_r[::200].transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.2)
-        sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
+        sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5, bw_adjust=.2)
+
         pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
         pd_t = ax.scatter(*data_t[::200].transpose(), marker='.', color='tab:orange', label='Predictions', alpha=0.2)
-        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
+        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5, bw_adjust=.2)
+
         ax.set_title('True Model vs Deconvolved Prediction')
         ax.set_xlabel('Dimension 1')
         ax.set_ylabel('Dimension 2')
