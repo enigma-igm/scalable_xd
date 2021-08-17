@@ -80,7 +80,7 @@ def covar_func(param_cond, K, D):
 
 
 def noise_func(param_cond, D, sigma_d=1, sigma_l=0):
-    """To generate the noise matrix. Diagonal and identical so far.
+    """To generate the noise matrix.
 
     Args:
         param_cond (array): conditional parameter that determines the noise function. 1D array..

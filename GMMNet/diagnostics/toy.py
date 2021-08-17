@@ -3,8 +3,54 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.collections import LineCollection
+from matplotlib.patches import Ellipse
 import numpy as np
 import torch
+
+from IPython import embed
+
+def covars_ellipse(covars):
+    """The parameters of the ellipse of the covariance matrix. Only valid when dimension=2.
+
+    Args:
+        covars (narray): The covariance matrix. Shaped in 2x2.
+
+    Returns:
+        lambda1, lambda2, theta(float, float, float): the 2 eigenvalues(semi-major axis, semi-minor axis) and the rotating angle in degree.
+    """
+    a = covars[:,0,0]
+    b = covars[:,0,1]
+    c = covars[:,1,1]
+    lambda1 = ((a+c) + np.sqrt((a-c)**2+4*b**2)) / 2
+    lambda2 = ((a+c) - np.sqrt((a-c)**2+4*b**2)) / 2
+    theta   = np.arctan2(lambda1-a, b) * 180/np.pi
+
+    return (lambda1, lambda2, theta)
+
+
+def add_ellipse(ax, data, lambda1, lambda2, theta, color='none'):
+    """Add covariance ellipses to the plot.
+
+    Args:
+        ax ([type]): [description]
+        data (narray): The data points. Shaped in nx2.
+        lambda1 (array): One semi axis. Length n.
+        lambda2 (array): Another semi axis. length n.
+        theta (array): Rotation angle of lambda1 with respect to (0,1). In degree. Length n.
+        color (str, optional): The color of the ellipses. Defaults to 'none'.
+    """
+    ells = [Ellipse(xy=data[i],
+                    width=lambda1[i], height=lambda2[i],
+                    angle=theta[i],
+                    facecolor='none',
+                    edgecolor=color,
+                    alpha=0.2)
+            for i in range(len(data))]
+    
+    for e in ells:
+        ax.add_artist(e)
+    
+    
 
 
 def all_figures(K,
@@ -124,18 +170,27 @@ def all_figures(K,
 
     # noisy observation vs predition + noise
     for i in cond_array:
-        noise     = noise_func(param_cond_tes[i], means_tes.shape[-1])
+        noise     = noise_func(param_cond_tes[i], means_tes.shape[-1], sigma_d=0.5, sigma_l=0.25)
         data_r, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], noise, Nr)
         data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr, torch.FloatTensor(noise).unsqueeze(0)).squeeze().detach().numpy()
         weight_t, means_t, covars_t = gmm(param_cond_tes[i].unsqueeze(0))
         
         fig, ax = plt.subplots()
+
         pm_r = ax.scatter(*means_tes[i].transpose(), label='True Means')
         pd_r = ax.scatter(*data_r[::200].transpose(), marker='.', color='tab:blue', label='Observations', alpha=0.2)
+        noise = noise[None,:].repeat(Nr,axis=0)
+        lambda1, lambda2, theta = covars_ellipse(noise)
+        add_ellipse(ax, data_r[::200], lambda1[::200], lambda2[::200], theta[::200], color='tab:blue')
         sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
+
         pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
-        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
         pd_t = ax.scatter(*data_t[::200].transpose(), marker='.', color='tab:orange', label='Predictions + Noise', alpha=0.2)
+        lambda1, lambda2, theta = covars_ellipse(noise)
+        add_ellipse(ax, data_t[::200], lambda1[::200], lambda2[::200], theta[::200], color='tab:orange')
+        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
+
+
         ax.set_title('Noisy Observation vs Prediction with Noise')
         ax.set_xlabel('Dimension 1')
         ax.set_ylabel('Dimension 2')
@@ -144,6 +199,8 @@ def all_figures(K,
                             markerfacecolor='k', markersize=5)]
         ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_t.get_label(),
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
+
+
 
     # noiseless data vs deconv data
     for i in cond_array:
@@ -157,8 +214,8 @@ def all_figures(K,
         pd_r = ax.scatter(*data_r[::200].transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.2)
         sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
         pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
-        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
         pd_t = ax.scatter(*data_t[::200].transpose(), marker='.', color='tab:orange', label='Predictions', alpha=0.2)
+        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
         ax.set_title('True Model vs Deconvolved Prediction')
         ax.set_xlabel('Dimension 1')
         ax.set_ylabel('Dimension 2')
@@ -169,5 +226,4 @@ def all_figures(K,
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
 
     plt.show()
-
 
