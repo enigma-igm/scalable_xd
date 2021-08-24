@@ -176,7 +176,7 @@ def data_load(N, K, D, D_cond, noisy=False):
         covars[i]     = covar_func(param_cond[i], K, D)
 
         if noisy is True:
-            noise[i]      = noise_func(param_cond[i], D, sigma_d=0.5, sigma_l=0.25)
+            noise[i]      = noise_func(param_cond[i], D, sigma_d=1., sigma_l=0.5)
             data[i], draw[i] = sample_func(weights[i], means[i], covars[i], noise=noise[i])
 
         if noisy is False:

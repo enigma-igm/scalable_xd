@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from IPython import embed
+from models.model import mvn
 
 def covars_ellipse(covars):
     """The parameters of the ellipse of the covariance matrix. Only valid when dimension=2.
@@ -61,7 +62,8 @@ def all_figures(K,
                 sample_func,
                 gmm,              
                 data_t, 
-                means0_t
+                means0_t,
+                KL_Div0
                 ):
     """ All figures to show the performances of our network.
 
@@ -76,6 +78,9 @@ def all_figures(K,
 
 
     # global check
+    Nr = 10000
+    sigma_d = 1
+    sigma_l = 0.5
     # conditional parameter covering the training range
     param_cond_tes = np.arange(0, 1, 0.01) + 0.01
     param_cond_tes = torch.FloatTensor(param_cond_tes.reshape(-1,1))
@@ -106,6 +111,7 @@ def all_figures(K,
     ax.set_xlabel('Dimension 1')
     ax.set_ylabel('Dimension 2')
     ax.legend(fontsize=14)
+    fig.savefig('figs/trainingset.png')
 
     # figure. plot means vs conditional parameter
     fig, ax = plt.subplots()
@@ -135,6 +141,7 @@ def all_figures(K,
     ax.set_xlabel('Dimension 1')
     ax.set_ylabel('Dimension 2')
     ax.set_title('Means of Each Component', fontsize=14)
+    fig.savefig('figs/means.png')
 
 
     # figure. plot weights vs conditional paramters
@@ -146,6 +153,7 @@ def all_figures(K,
     ax.set_title(f'Weight of {K} Components', fontsize=14)
     customs = [pw_r[0], pw_tes[0]]
     ax.legend(customs, [pw_r[0].get_label(), pw_tes[0].get_label()], fontsize=10)
+    fig.savefig('figs/weights.png')
 
 
     # figure. Diagonal Element vs conditional parameters
@@ -158,7 +166,40 @@ def all_figures(K,
         customs = [pde_r[0], pde_tes[0]]
         ax[i].legend(customs, [pde_r[0].get_label(), pde_tes[0].get_label()], fontsize=10)
     plt.tight_layout() 
+    fig.savefig('figs/covars.png')
 
+
+
+    # figure. KL divergence vs conditional
+    llkh_tes = np.zeros((len(param_cond_tes)))
+    llkh_r   = np.zeros((len(param_cond_tes)))
+    
+    for i, cond in enumerate(param_cond_tes):
+        noise  = noise_func(cond, means_tes.shape[-1], sigma_d=sigma_d, sigma_l=sigma_l)
+        data_tes, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], noise, Nr)
+        
+        noisy_covar = covars_tes[i] + noise
+        llkhs_tes = mvn(loc=torch.FloatTensor(means_tes[i][None, :].repeat(Nr, 0)),
+                            covariance_matrix=torch.FloatTensor(noisy_covar[None, :].repeat(Nr, 0))
+                            ).log_prob(torch.FloatTensor(data_tes[:,None,:]))
+        llkh_tes[i] = torch.logsumexp(llkhs_tes + np.log(weight_tes[i]), -1).mean().numpy()
+        noisy_covar = covars_r[i] + noise
+        llkhs_r   = mvn(loc=torch.from_numpy(means_r[i][None, :]),
+                            covariance_matrix=torch.from_numpy(noisy_covar[None, :])
+                            ).log_prob(torch.from_numpy(data_tes[:,None,:]))
+        llkh_r[i]   = torch.logsumexp((llkhs_r  + np.log(weight_r[i])),  -1).mean().numpy()
+    
+    KL_Div  = llkh_r - llkh_tes
+    fig, ax = plt.subplots()
+    ax.plot(param_cond_tes, KL_Div, label='KL Divergence')
+    ax.plot(param_cond_tes, np.ones_like(param_cond_tes)*KL_Div0, label='KL Div on Training Set')
+    ax.set_xlabel('Conditional Parameter z')
+    ax.set_ylabel('KL Divergence')
+    ax.set_title('KL Divergence on Different Conditionals')
+    ax.legend(fontsize=14)
+    fig.savefig('figs/KLDiv.png')
+
+    embed()
 
     # specific check
     # GMM parameters at a certain conditional parameter
@@ -167,28 +208,40 @@ def all_figures(K,
     Nr = 10000
     cond_array = [9, 49, 89] # cond = 0.1, 0.5, 0.9
     param_cond_tes = torch.from_numpy(param_cond_tes)
+    step = 50
 
     # noisy observation vs predition + noise
     for i in cond_array:
-        noise     = noise_func(param_cond_tes[i], means_tes.shape[-1], sigma_d=0.5, sigma_l=0.25)
+        
+        noise  = np.zeros((Nr, D, D))
+        data_r = np.zeros((Nr, D))
+        data_t = np.zeros((Nr, D))
+        
+        for j in range(Nr):
+            noise[j]     = noise_func(param_cond_tes[i], means_tes.shape[-1], sigma_d=sigma_d, sigma_l=sigma_l)
+            data_r[j], _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], noise[j], 1)
+            data_t[j]    = gmm.sample(param_cond_tes[i].unsqueeze(0), 1, torch.FloatTensor(noise[j]).unsqueeze(0)).squeeze().detach().numpy()
+        '''
+        noise     = noise_func(param_cond_tes[i], means_tes.shape[-1], sigma_d=sigma_d, sigma_l=simga_l)
         data_r, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], noise, Nr)
         data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr, torch.FloatTensor(noise).unsqueeze(0)).squeeze().detach().numpy()
+        '''
         weight_t, means_t, covars_t = gmm(param_cond_tes[i].unsqueeze(0))
         
         fig, ax = plt.subplots()
 
         pm_r = ax.scatter(*means_tes[i].transpose(), label='True Means')
-        pd_r = ax.scatter(*data_r[::200].transpose(), marker='.', color='tab:blue', label='Observations', alpha=0.2)
-        noise = noise[None,:].repeat(Nr,axis=0)
+        pd_r = ax.scatter(*data_r[::step].transpose(), marker='.', color='tab:blue', label='Observations', alpha=0.2)
+        #noise = noise[None,:].repeat(Nr,axis=0)
         lambda1, lambda2, theta = covars_ellipse(noise)
-        add_ellipse(ax, data_r[::200], lambda1[::200], lambda2[::200], theta[::200], color='tab:blue')
-        sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5, bw_adjust=.2)
-
+        add_ellipse(ax, data_r[::step], lambda1[::step], lambda2[::step], theta[::step], color='tab:blue')
+        sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
+        
         pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
-        pd_t = ax.scatter(*data_t[::200].transpose(), marker='.', color='tab:orange', label='Predictions + Noise', alpha=0.2)
+        pd_t = ax.scatter(*data_t[::step].transpose(), marker='.', color='tab:orange', label='Predictions + Noise', alpha=0.2)
         lambda1, lambda2, theta = covars_ellipse(noise)
-        add_ellipse(ax, data_t[::200], lambda1[::200], lambda2[::200], theta[::200], color='tab:orange')
-        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5, bw_adjust=.2)
+        add_ellipse(ax, data_t[::step], lambda1[::step], lambda2[::step], theta[::step], color='tab:orange')
+        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
 
         ax.set_title('Noisy Observation vs Prediction with Noise')
         ax.set_xlabel('Dimension 1')
@@ -198,25 +251,33 @@ def all_figures(K,
                             markerfacecolor='k', markersize=5)]
         ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_t.get_label(),
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
+        fig.savefig(f'figs/NoisyComp{i+1}.png')
 
 
 
     # noiseless data vs deconv data
     for i in cond_array:
-        #noise     = noise_func(param_cond_tes[i], means_tes.shape[-1])
+        '''
+        noise  = np.zeros((Nr, D, D))
+        data_r = np.zeros((Nr, D))
+        data_t = np.zeros((Nr, D))
+        for j in range(Nr):
+            data_r[j], _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], 1)
+            data_t[j]    = gmm.sample(param_cond_tes[i].unsqueeze(0), 1).squeeze().detach().numpy()
+        '''
         data_r, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], N=Nr)
         data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr).squeeze().detach().numpy()
         weight_t, means_t, covars_t = gmm(param_cond_tes[i].unsqueeze(0))
-
+        
         fig, ax = plt.subplots()
 
         pm_r = ax.scatter(*means_tes[i].transpose(), label='True Means')
         pd_r = ax.scatter(*data_r[::200].transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.2)
-        sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5, bw_adjust=.2)
+        sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
 
         pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
         pd_t = ax.scatter(*data_t[::200].transpose(), marker='.', color='tab:orange', label='Predictions', alpha=0.2)
-        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5, bw_adjust=.2)
+        sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
 
         ax.set_title('True Model vs Deconvolved Prediction')
         ax.set_xlabel('Dimension 1')
@@ -226,6 +287,7 @@ def all_figures(K,
                             markerfacecolor='k', markersize=5)]
         ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_t.get_label(),
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
+        fig.savefig(f'figs/cleanComp{i+1}.png')
 
     plt.show()
 

@@ -107,7 +107,8 @@ for n in range(epoch):
         break
     
 
+KL_Div = train_loss + log_true.numpy()
+print(f'KL divergense = {KL_Div}')
+all_figures(K, D, weight_func, means_func, covar_func, sample_func, gmm, data_t, means0_t, KL_Div)
 
-all_figures(K, D, weight_func, means_func, covar_func, sample_func, gmm, data_t, means0_t)
-
-print(f'KL divergense = {train_loss + log_true.numpy()}')
+embed()
