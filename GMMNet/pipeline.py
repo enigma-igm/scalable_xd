@@ -1,7 +1,7 @@
 from torch.utils import data
 from data.toy import *
 from models.model import *
-from diagnostics.toy import all_figures
+from diagnostics.toy import all_figures, KLdiv_figure
 
 import seaborn as sns
 
@@ -20,7 +20,7 @@ from IPython import embed
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 # components, dimension of data, and dimension of conditional
-K, D, D_cond = 3, 2, 1
+K, D, D_cond = 7, 7, 1
 
 # size of training sample and validation sample (no validation yet)
 N_t = 10000
@@ -109,6 +109,6 @@ for n in range(epoch):
 
 KL_Div = train_loss + log_true.numpy()
 print(f'KL divergense = {KL_Div}')
-all_figures(K, D, weight_func, means_func, covar_func, sample_func, gmm, data_t, means0_t, KL_Div)
-
+all_figures(K, D, weight_func, means_func, covar_func, sample_func, gmm, data_t, means0_t)
+KLdiv_figure(param_cond_t, weights_t, means_t, covars_t, data_t, noise_t, gmm)
 embed()

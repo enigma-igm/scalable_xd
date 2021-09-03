@@ -1,10 +1,18 @@
 import numpy as np
 
+def J_obs_2_true(f_j, sigma=None):
+
+    np.random.seed(37)
+
+    f_j_true = f_j + np.random.randn(1) * np.log(f_j)
+
+    return f_j_true
+
 
 # the assumed functions
 # all functions use simple linear transformations to a given cond vector. The transformations are fixed by given random seeds.
 def weight_func(param_cond, K):
-    """To generate the weights of the Gaussian components given the conditiontial parameters.
+    """To generate the weights of the Gaussian components given the conditiontial parameters. The output is derived by multiplying a matrix to the conditional.
 
     Args:
         param_cond (array): conditional parameter that determines the noise function. 1D array.
@@ -26,7 +34,7 @@ def weight_func(param_cond, K):
 
 
 def means_func(param_cond, K, D):
-    """To generate the means of the Gaussian components given the conditiontial parameters.
+    """To generate the means of the Gaussian components given the conditiontial parameters. The output is derived by multiplying a matrix to the conditional.
 
     Args:
         param_cond (array): conditional parameter that determines the noise function. 1D array.
@@ -45,7 +53,7 @@ def means_func(param_cond, K, D):
     return means0
 
 def covar_func(param_cond, K, D):
-    """To generate the covariance of the Gaussian components given the conditiontial parameters.
+    """To generate the covariance of the Gaussian components given the conditiontial parameters. The output is derived by multiplying a matrix to the conditional.
 
     Args:
         param_cond (array): conditional parameter that determines the noise function. 1D array.
@@ -79,15 +87,17 @@ def covar_func(param_cond, K, D):
     return covars0
 
 
-def noise_func(param_cond, D, sigma_d=1, sigma_l=0):
+def noise_func(param_cond, D, sigma_d=1., sigma_l=0.):
     """To generate the noise matrix.
 
     Args:
-        param_cond (array): conditional parameter that determines the noise function. 1D array..
+        param_cond (array): conditional parameter that determines the noise function. 1D array.
         D (int): Dimension of data.
+        sigma_d (float, optional): Diagonal scale. Not very formal. Defaults to 1.
+        sigma_l (float, optional): Off diagonal scale. Not very formal. Defaults to 0.
 
     Returns:
-        narray: DxD noise array.
+        narray: DxD noise matrix.
     """
     #noise = np.eye(D)*0.3
     
@@ -99,7 +109,7 @@ def noise_func(param_cond, D, sigma_d=1, sigma_l=0):
     np.random.seed()
     noise[d_idx] = np.random.rand(D) * sigma_d
     np.random.seed()
-    noise[l_idx] = np.random.rand(int(D*(D-1)/2)) * sigma_l
+    noise[l_idx] = (np.random.rand(int(D*(D-1)/2))*2-1) * sigma_l
     noise = np.matmul(noise, np.transpose(noise))
 
     return noise

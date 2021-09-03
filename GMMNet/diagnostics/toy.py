@@ -62,8 +62,7 @@ def all_figures(K,
                 sample_func,
                 gmm,              
                 data_t, 
-                means0_t,
-                KL_Div0
+                means0_t
                 ):
     """ All figures to show the performances of our network.
 
@@ -103,21 +102,21 @@ def all_figures(K,
         covars_r[i]   = covar_func(param_cond_tes[i], K, D)
     
     # figure. all samples and initial guess of the means
-    data_t = data_t.numpy().reshape(-1, 2)
+    data_t = data_t.numpy().reshape(-1, D)
     fig, ax = plt.subplots()
-    pd_t = ax.scatter(*data_t.transpose(), marker='.', color='grey', alpha=0.5, label='Training Set')
-    pd_k = ax.scatter(*means0_t.transpose(), s=80, marker='.', color='tab:orange', label='kmeans centroids')
+    pd_t = ax.scatter(*data_t[:,0:2].transpose(), marker='.', color='grey', alpha=0.5, label='Training Set')
+    pd_k = ax.scatter(*means0_t[:,0:2].transpose(), s=80, marker='.', color='tab:orange', label='kmeans centroids')
     ax.set_title('Training Set', fontsize=14)
     ax.set_xlabel('Dimension 1')
     ax.set_ylabel('Dimension 2')
     ax.legend(fontsize=14)
-    fig.savefig('figs/trainingset.png')
+    fig.savefig('figs/trainingset.pdf')
 
     # figure. plot means vs conditional parameter
     fig, ax = plt.subplots()
     norm = plt.Normalize(param_cond_tes.min(), param_cond_tes.max())
     for i in range(K):
-        points = means_r[:,i,:].reshape(-1, 1, 2)#np.array([x, y]).T.reshape(-1, 1, 2)
+        points = means_r[:,i,:].reshape(-1, 1, D)[:,:,0:2]
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
         lc = LineCollection(segments, cmap='Blues', norm=norm)
         # Set the values used for colormapping
@@ -126,8 +125,8 @@ def all_figures(K,
         line = ax.add_collection(lc)
     cbar = plt.colorbar(line, ax=ax, aspect=15)
     cbar.set_label('True vs Conditional Parameter z', fontsize=10)
-    for i in range(K):
-        points = means_tes[:,i,:].reshape(-1, 1, 2)#np.array([x, y]).T.reshape(-1, 1, 2)
+    for i in range(gmm.n_components):
+        points = means_tes[:,i,:].reshape(-1, 1, D)[:,:,0:2]
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
         lc = LineCollection(segments, cmap='Oranges', norm=norm)
         # Set the values used for colormapping
@@ -141,7 +140,7 @@ def all_figures(K,
     ax.set_xlabel('Dimension 1')
     ax.set_ylabel('Dimension 2')
     ax.set_title('Means of Each Component', fontsize=14)
-    fig.savefig('figs/means.png')
+    fig.savefig('figs/means.pdf')
 
 
     # figure. plot weights vs conditional paramters
@@ -153,12 +152,12 @@ def all_figures(K,
     ax.set_title(f'Weight of {K} Components', fontsize=14)
     customs = [pw_r[0], pw_tes[0]]
     ax.legend(customs, [pw_r[0].get_label(), pw_tes[0].get_label()], fontsize=10)
-    fig.savefig('figs/weights.png')
+    fig.savefig('figs/weights.pdf')
 
 
     # figure. Diagonal Element vs conditional parameters
-    fig, ax = plt.subplots(2)
-    for i in range(2):
+    fig, ax = plt.subplots(D, figsize=(6,D*1.7))
+    for i in range(D):
         pde_r = ax[i].plot(param_cond_tes, covars_r[:,:,i,i], color='tab:blue', label='True')
         pde_tes = ax[i].plot(param_cond_tes, covars_tes[:,:,i,i], color='tab:orange', label='Predicted')
         ax[i].set_title(f'{i+1, i+1} Element of the Covariance Matrix', fontsize=12)
@@ -166,40 +165,10 @@ def all_figures(K,
         customs = [pde_r[0], pde_tes[0]]
         ax[i].legend(customs, [pde_r[0].get_label(), pde_tes[0].get_label()], fontsize=10)
     plt.tight_layout() 
-    fig.savefig('figs/covars.png')
+    fig.savefig('figs/covars.pdf')
 
 
 
-    # figure. KL divergence vs conditional
-    llkh_tes = np.zeros((len(param_cond_tes)))
-    llkh_r   = np.zeros((len(param_cond_tes)))
-    
-    for i, cond in enumerate(param_cond_tes):
-        noise  = noise_func(cond, means_tes.shape[-1], sigma_d=sigma_d, sigma_l=sigma_l)
-        data_tes, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], noise, Nr)
-        
-        noisy_covar = covars_tes[i] + noise
-        llkhs_tes = mvn(loc=torch.FloatTensor(means_tes[i][None, :].repeat(Nr, 0)),
-                            covariance_matrix=torch.FloatTensor(noisy_covar[None, :].repeat(Nr, 0))
-                            ).log_prob(torch.FloatTensor(data_tes[:,None,:]))
-        llkh_tes[i] = torch.logsumexp(llkhs_tes + np.log(weight_tes[i]), -1).mean().numpy()
-        noisy_covar = covars_r[i] + noise
-        llkhs_r   = mvn(loc=torch.from_numpy(means_r[i][None, :]),
-                            covariance_matrix=torch.from_numpy(noisy_covar[None, :])
-                            ).log_prob(torch.from_numpy(data_tes[:,None,:]))
-        llkh_r[i]   = torch.logsumexp((llkhs_r  + np.log(weight_r[i])),  -1).mean().numpy()
-    
-    KL_Div  = llkh_r - llkh_tes
-    fig, ax = plt.subplots()
-    ax.plot(param_cond_tes, KL_Div, label='KL Divergence')
-    ax.plot(param_cond_tes, np.ones_like(param_cond_tes)*KL_Div0, label='KL Div on Training Set')
-    ax.set_xlabel('Conditional Parameter z')
-    ax.set_ylabel('KL Divergence')
-    ax.set_title('KL Divergence on Different Conditionals')
-    ax.legend(fontsize=14)
-    fig.savefig('figs/KLDiv.png')
-
-    embed()
 
     # specific check
     # GMM parameters at a certain conditional parameter
@@ -230,17 +199,17 @@ def all_figures(K,
         
         fig, ax = plt.subplots()
 
-        pm_r = ax.scatter(*means_tes[i].transpose(), label='True Means')
-        pd_r = ax.scatter(*data_r[::step].transpose(), marker='.', color='tab:blue', label='Observations', alpha=0.2)
+        pm_r = ax.scatter(*means_tes[i][:,0:2].transpose(), label='True Means')
+        pd_r = ax.scatter(*data_r[::step][:,0:2].transpose(), marker='.', color='tab:blue', label='Observations', alpha=0.2)
         #noise = noise[None,:].repeat(Nr,axis=0)
         lambda1, lambda2, theta = covars_ellipse(noise)
-        add_ellipse(ax, data_r[::step], lambda1[::step], lambda2[::step], theta[::step], color='tab:blue')
+        add_ellipse(ax, data_r[:,0:2][::step], lambda1[::step], lambda2[::step], theta[::step], color='tab:blue')
         sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
         
-        pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
-        pd_t = ax.scatter(*data_t[::step].transpose(), marker='.', color='tab:orange', label='Predictions + Noise', alpha=0.2)
+        pm_t = ax.scatter(*means_t.detach().numpy()[0][:,0:2].transpose(), label='Predicted Means')
+        pd_t = ax.scatter(*data_t[::step][:,0:2].transpose(), marker='.', color='tab:orange', label='Predictions + Noise', alpha=0.2)
         lambda1, lambda2, theta = covars_ellipse(noise)
-        add_ellipse(ax, data_t[::step], lambda1[::step], lambda2[::step], theta[::step], color='tab:orange')
+        add_ellipse(ax, data_t[:,0:2][::step], lambda1[::step], lambda2[::step], theta[::step], color='tab:orange')
         sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
 
         ax.set_title('Noisy Observation vs Prediction with Noise')
@@ -251,7 +220,7 @@ def all_figures(K,
                             markerfacecolor='k', markersize=5)]
         ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_t.get_label(),
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
-        fig.savefig(f'figs/NoisyComp{i+1}.png')
+        fig.savefig(f'figs/NoisyComp{i+1}.pdf')
 
 
 
@@ -271,12 +240,12 @@ def all_figures(K,
         
         fig, ax = plt.subplots()
 
-        pm_r = ax.scatter(*means_tes[i].transpose(), label='True Means')
-        pd_r = ax.scatter(*data_r[::200].transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.2)
+        pm_r = ax.scatter(*means_tes[i][:,0:2].transpose(), label='True Means')
+        pd_r = ax.scatter(*data_r[::step][:,0:2].transpose(), marker='.', color='tab:blue', label='Samples (on true)', alpha=0.2)
         sns.kdeplot(x=data_r[:,0], y=data_r[:,1], color='tab:blue', alpha=0.5)
 
-        pm_t = ax.scatter(*means_t.detach().numpy()[0].transpose(), label='Predicted Means')
-        pd_t = ax.scatter(*data_t[::200].transpose(), marker='.', color='tab:orange', label='Predictions', alpha=0.2)
+        pm_t = ax.scatter(*means_t.detach().numpy()[0][:,0:2].transpose(), label='Predicted Means')
+        pd_t = ax.scatter(*data_t[::step][:,0:2].transpose(), marker='.', color='tab:orange', label='Predictions', alpha=0.2)
         sns.kdeplot(x=data_t[:,0], y=data_t[:,1], color='tab:orange', alpha=0.5)
 
         ax.set_title('True Model vs Deconvolved Prediction')
@@ -287,7 +256,55 @@ def all_figures(K,
                             markerfacecolor='k', markersize=5)]
         ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_t.get_label(),
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
-        fig.savefig(f'figs/cleanComp{i+1}.png')
+        fig.savefig(f'figs/cleanComp{i+1}.pdf')
 
     plt.show()
 
+
+def KLdiv_figure(param_cond_t, weights_t, means_t, covars_t, data_t, noise_t, gmm):
+
+    # demension of the data
+    D = (data_t.shape)[-1]
+    # reshape the data
+    data_t = data_t.reshape(-1,D)
+    # derive the trained parameters
+    param_cond_t = param_cond_t.reshape(-1, 1)
+    weight_tes, means_tes, covars_tes = gmm(param_cond_t)
+    weight_tes = weight_tes.detach()
+    means_tes  = means_tes.detach()
+    covars_tes = covars_tes.detach()
+
+    # log-likelihood on NN and real model
+    noisy_covar = covars_tes + noise_t.reshape(-1, D, D)[:, None, ...]
+    llkhs_tes = mvn(loc=means_tes,
+                        covariance_matrix=noisy_covar
+                        ).log_prob(data_t[:,None,:])
+    llkh_tes = torch.logsumexp(llkhs_tes + np.log(weight_tes), -1).numpy()
+
+    noisy_covar = torch.from_numpy(covars_t) + noise_t.reshape(-1, D, D)[:, None, ...]
+    llkhs_r   = mvn(loc=torch.from_numpy(means_t),
+                        covariance_matrix=noisy_covar
+                        ).log_prob(data_t[:,None,:])
+    llkh_r   = torch.logsumexp((llkhs_r  + np.log(weights_t)), -1).numpy()
+
+    # KL divergence
+    KL_Div  = llkh_r - llkh_tes
+
+    # binned KL
+    param_conds = np.arange(20)/20 + 1/40
+    KL_Divs = np.zeros(20)
+    for i in range(20):
+        bln = (param_cond_t > (param_conds[i]-1/40)) * (param_cond_t <= param_conds[i]+1/40)
+        KL_Divs[i] = KL_Div[bln.flatten().numpy()].mean()
+
+    # figure. KL divergence vs conditional
+    fig, ax = plt.subplots()
+    ax.scatter(param_cond_t.flatten(), KL_Div, label='KL Divs on Training Set', marker='.', alpha=0.2)
+    ax.plot(param_conds, KL_Divs, label='Binned KL Divergence', color='tab:orange')
+    ax.set_xlabel('Conditional Parameter z')
+    ax.set_ylabel('KL Divergence')
+    ax.set_title('KL Divergence on Different Conditionals')
+    ax.legend(fontsize=14)
+    fig.savefig('figs/KLDiv.pdf')
+
+    plt.show()
