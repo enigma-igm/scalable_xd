@@ -6,6 +6,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.patches import Ellipse
 import numpy as np
 import torch
+import corner
 
 from IPython import embed
 from models.model import mvn
@@ -166,7 +167,7 @@ def all_figures(K,
         ax[i].legend(customs, [pde_r[0].get_label(), pde_tes[0].get_label()], fontsize=10)
     plt.tight_layout() 
     fig.savefig('figs/covars.pdf')
-
+    plt.show()
 
 
 
@@ -178,6 +179,8 @@ def all_figures(K,
     cond_array = [9, 49, 89] # cond = 0.1, 0.5, 0.9
     param_cond_tes = torch.from_numpy(param_cond_tes)
     step = 50
+    bins = 30
+    label = [f'Dimension {i+1}' for i in range(D)]
 
     # noisy observation vs predition + noise
     for i in cond_array:
@@ -196,7 +199,7 @@ def all_figures(K,
         data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr, torch.FloatTensor(noise).unsqueeze(0)).squeeze().detach().numpy()
         '''
         weight_t, means_t, covars_t = gmm(param_cond_tes[i].unsqueeze(0))
-        
+        '''
         fig, ax = plt.subplots()
 
         pm_r = ax.scatter(*means_tes[i][:,0:2].transpose(), label='True Means')
@@ -221,7 +224,16 @@ def all_figures(K,
         ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_t.get_label(),
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
         fig.savefig(f'figs/NoisyComp{i+1}.pdf')
-
+        '''
+        contour_param_r = dict(linewidths=0.9, alpha=0.9, colors='tab:blue')
+        contour_param_t = dict(linewidths=0.9, alpha=0.9, colors='tab:orange')
+        figure = corner.corner(data_r, color='tab:blue', labels=label, show_titles=True, title_kwargs={"fontsize": 12}, contour_kwargs=contour_param_r, bins=bins)
+        corner.corner(data_t, fig=figure, color='tab:orange', labels=label, contour_kwargs=contour_param_t, bins=bins)
+        axes = np.array(figure.axes).reshape(D, D)
+        axes[0, -3].text(0.2, 0.8, f'Samples on NN vs Samples on Real Model, cond={param_cond_tes[i].numpy()[0]:.2f}', fontsize=20, horizontalalignment='center', c='k', weight='bold')
+        axes[0, -3].text(0.2, 0.5, f'Noise Convovled Real Model', fontsize=20, horizontalalignment='center', c='tab:blue', weight='bold')
+        axes[0, -3].text(0.2, 0.2, f'Noise Convovled NN Predictions', fontsize=20, horizontalalignment='center', c='tab:orange', weight='bold')
+        figure.savefig(f'figs/noisyComp{i+1}.pdf')
 
 
     # noiseless data vs deconv data
@@ -237,7 +249,7 @@ def all_figures(K,
         data_r, _ = sample_func(weight_tes[i], means_tes[i], covars_tes[i], N=Nr)
         data_t    = gmm.sample(param_cond_tes[i].unsqueeze(0), Nr).squeeze().detach().numpy()
         weight_t, means_t, covars_t = gmm(param_cond_tes[i].unsqueeze(0))
-        
+        '''
         fig, ax = plt.subplots()
 
         pm_r = ax.scatter(*means_tes[i][:,0:2].transpose(), label='True Means')
@@ -257,8 +269,16 @@ def all_figures(K,
         ax.legend(customs, [pm_r.get_label(), pd_r.get_label(), pm_t.get_label(), pd_t.get_label(),
                         f'Conditional z={(param_cond_tes[i].numpy()[0]):.2f}'], fontsize=10)
         fig.savefig(f'figs/cleanComp{i+1}.pdf')
-
-    plt.show()
+        '''
+        contour_param_r = dict(linewidths=0.9, alpha=0.9, colors='tab:blue')
+        contour_param_t = dict(linewidths=0.9, alpha=0.9, colors='tab:orange')
+        figure = corner.corner(data_r, color='tab:blue', labels=label, show_titles=True, title_kwargs={"fontsize": 12}, contour_kwargs=contour_param_r, bins=bins)
+        corner.corner(data_t, fig=figure, color='tab:orange', labels=label, contour_kwargs=contour_param_t, bins=bins)
+        axes = np.array(figure.axes).reshape(D, D)
+        axes[0, -3].text(0.2, 0.8, f'Samples on NN vs Samples on Real Model, cond={param_cond_tes[i].numpy()[0]:.2f}', fontsize=20, horizontalalignment='center', c='k', weight='bold')
+        axes[0, -3].text(0.2, 0.5, f'Noiseless Samples on Real Model', fontsize=20, horizontalalignment='center', c='tab:blue', weight='bold')
+        axes[0, -3].text(0.2, 0.2, f'NN Predictions', fontsize=20, horizontalalignment='center', c='tab:orange', weight='bold')
+        figure.savefig(f'figs/cleanComp{i+1}.pdf')
 
 
 def KLdiv_figure(param_cond_t, weights_t, means_t, covars_t, data_t, noise_t, gmm):

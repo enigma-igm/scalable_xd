@@ -13,6 +13,7 @@ from more_itertools import chunked
 
 from sklearn.cluster import KMeans
 
+import copy
 import os
 
 from IPython import embed
@@ -24,7 +25,7 @@ K, D, D_cond = 7, 7, 1
 
 # size of training sample and validation sample (no validation yet)
 N_t = 10000
-N_v = N_t//5
+N_v = N_t//10
 
 # load training and validation data and parameters
 param_cond_t, weights_t, means_t, covars_t, data_t, noise_t, draw_t = data_load(N_t, K, D, D_cond, noisy=True)
@@ -87,8 +88,12 @@ noise_v = chunck(noise_v, batch_size)
 
 # training loop
 epoch = 250
+lowest_loss = 9999
+best_model  = copy.deepcopy(gmm)
 for n in range(epoch):
     try:
+        # training
+        gmm.train()
         train_loss = 0
         for i, data_i in enumerate(data_t):
             optimizer.zero_grad()
@@ -100,8 +105,22 @@ for n in range(epoch):
             optimizer.step()
         
         train_loss = train_loss / data_t.shape[0]
-        print((n+1),'Epoch', train_loss)
+        print('Epoch', (n+1), 'Training loss', train_loss)
         scheduler.step(train_loss)
+
+        # validating
+        gmm.eval()
+        val_loss = 0
+        for i, data_i in enumerate(data_v):
+            optimizer.zero_grad()
+            loss = -gmm.log_prob_b(data_i, param_cond_v[i], noise=noise_v[i]).mean()
+            val_loss += loss.item()
+        val_loss = val_loss / data_v.shape[0]
+        print('Epoch', (n+1), 'Validation loss', val_loss)
+        if val_loss < lowest_loss:
+            lowest_loss = val_loss
+            best_model  = copy.deepcopy(gmm)
+
 
     except KeyboardInterrupt:
         break
@@ -109,6 +128,5 @@ for n in range(epoch):
 
 KL_Div = train_loss + log_true.numpy()
 print(f'KL divergense = {KL_Div}')
-all_figures(K, D, weight_func, means_func, covar_func, sample_func, gmm, data_t, means0_t)
-KLdiv_figure(param_cond_t, weights_t, means_t, covars_t, data_t, noise_t, gmm)
-embed()
+all_figures(K, D, weight_func, means_func, covar_func, sample_func, best_model, data_t, means0_t)
+KLdiv_figure(param_cond_t, weights_t, means_t, covars_t, data_t, noise_t, best_model)
