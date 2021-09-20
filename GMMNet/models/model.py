@@ -5,6 +5,8 @@ import torch.distributions as dist
 from torch.utils.data import WeightedRandomSampler
 mvn = dist.multivariate_normal.MultivariateNormal
 
+from IPython import embed
+
 
 class GMMNet(nn.Module):
     """Neural network for Gaussian Mixture Model"""
@@ -85,7 +87,8 @@ class GMMNet(nn.Module):
         
         # calculate covariance matrix
         covars = torch.matmul(scale_tril, scale_tril.transpose(-2, -1))
-        
+        #covars = (covars + covars.transpose(-2, -1)) / 2
+
         return weights, means, covars
     
     
@@ -104,7 +107,15 @@ class GMMNet(nn.Module):
             noise = noise[:, None, ...]  # add noise to all components
 
         noisy_covars = covars + noise
-
+        '''
+        try: 
+            torch.linalg.cholesky(noisy_covars)
+        except:
+            raise ValueError('not choleskiable')
+        '''
+        '''
+        print('True in (torch.det(noisy_covars)<0)')
+        '''
         log_resp = mvn(loc=means, covariance_matrix=noisy_covars).log_prob(data[:, None, :])
         
         log_resp += torch.log(weights)

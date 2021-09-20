@@ -180,7 +180,7 @@ def all_figures(K,
     param_cond_tes = torch.from_numpy(param_cond_tes)
     step = 50
     bins = 30
-    label = [f'Dimension {i+1}' for i in range(D)]
+    label = [f'Dim. {i+1}' for i in range(D)]
 
     # noisy observation vs predition + noise
     for i in cond_array:
@@ -227,12 +227,14 @@ def all_figures(K,
         '''
         contour_param_r = dict(linewidths=0.9, alpha=0.9, colors='tab:blue')
         contour_param_t = dict(linewidths=0.9, alpha=0.9, colors='tab:orange')
-        figure = corner.corner(data_r, color='tab:blue', labels=label, show_titles=True, title_kwargs={"fontsize": 12}, contour_kwargs=contour_param_r, bins=bins)
-        corner.corner(data_t, fig=figure, color='tab:orange', labels=label, contour_kwargs=contour_param_t, bins=bins)
+        figure = corner.corner(data_r, color='tab:blue', labels=label, label_kwargs=dict(fontsize=16), show_titles=True, title_kwargs={"fontsize": 14}, contour_kwargs=contour_param_r, bins=bins)
+        corner.corner(data_t, fig=figure, color='tab:orange', labels=label, label_kwargs=dict(fontsize=16), contour_kwargs=contour_param_t, bins=bins)
         axes = np.array(figure.axes).reshape(D, D)
-        axes[0, -3].text(0.2, 0.8, f'Samples on NN vs Samples on Real Model, cond={param_cond_tes[i].numpy()[0]:.2f}', fontsize=20, horizontalalignment='center', c='k', weight='bold')
-        axes[0, -3].text(0.2, 0.5, f'Noise Convovled Real Model', fontsize=20, horizontalalignment='center', c='tab:blue', weight='bold')
-        axes[0, -3].text(0.2, 0.2, f'Noise Convovled NN Predictions', fontsize=20, horizontalalignment='center', c='tab:orange', weight='bold')
+        for ax in figure.get_axes():
+            ax.tick_params(axis='both', direction='in', labelsize=12)
+        axes[1, -3].text(0.6, 0.8, f'Samples on NN vs Samples on Real Model,\n cond={param_cond_tes[i].numpy()[0]:.2f}', fontsize=25, horizontalalignment='center', c='k', weight='bold')
+        axes[1, -3].text(0.6, 0.5, f'Noise Convolved Real Model', fontsize=25, horizontalalignment='center', c='tab:blue', weight='bold')
+        axes[1, -3].text(0.6, 0.2, f'Noise Convolved NN Predictions', fontsize=25, horizontalalignment='center', c='tab:orange', weight='bold')
         figure.savefig(f'figs/noisyComp{i+1}.pdf')
 
 
@@ -272,12 +274,14 @@ def all_figures(K,
         '''
         contour_param_r = dict(linewidths=0.9, alpha=0.9, colors='tab:blue')
         contour_param_t = dict(linewidths=0.9, alpha=0.9, colors='tab:orange')
-        figure = corner.corner(data_r, color='tab:blue', labels=label, show_titles=True, title_kwargs={"fontsize": 12}, contour_kwargs=contour_param_r, bins=bins)
-        corner.corner(data_t, fig=figure, color='tab:orange', labels=label, contour_kwargs=contour_param_t, bins=bins)
+        figure = corner.corner(data_r, color='tab:blue', labels=label, label_kwargs=dict(fontsize=16), show_titles=True, title_kwargs={"fontsize": 14}, contour_kwargs=contour_param_r, bins=bins)
+        corner.corner(data_t, fig=figure, color='tab:orange', labels=label, label_kwargs=dict(fontsize=16), contour_kwargs=contour_param_t, bins=bins)
         axes = np.array(figure.axes).reshape(D, D)
-        axes[0, -3].text(0.2, 0.8, f'Samples on NN vs Samples on Real Model, cond={param_cond_tes[i].numpy()[0]:.2f}', fontsize=20, horizontalalignment='center', c='k', weight='bold')
-        axes[0, -3].text(0.2, 0.5, f'Noiseless Samples on Real Model', fontsize=20, horizontalalignment='center', c='tab:blue', weight='bold')
-        axes[0, -3].text(0.2, 0.2, f'NN Predictions', fontsize=20, horizontalalignment='center', c='tab:orange', weight='bold')
+        for ax in figure.get_axes():
+            ax.tick_params(axis='both', direction='in', labelsize=12)
+        axes[1, -3].text(0.6, 0.8, f'Samples on NN vs Samples on Real Model,\n cond={param_cond_tes[i].numpy()[0]:.2f}', fontsize=25, horizontalalignment='center', c='k', weight='bold')
+        axes[1, -3].text(0.6, 0.5, f'Noise Convovled Real Model', fontsize=25, horizontalalignment='center', c='tab:blue', weight='bold')
+        axes[1, -3].text(0.6, 0.2, f'Noise Convovled NN Predictions', fontsize=25, horizontalalignment='center', c='tab:orange', weight='bold')
         figure.savefig(f'figs/cleanComp{i+1}.pdf')
 
 
