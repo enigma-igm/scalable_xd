@@ -98,7 +98,7 @@ class BaseSGDGMM(ABC):
         ???
 
     w : float, default=1e-6
-        ???
+        Scale factor of regression loss.
 
     k_means_iters : int, default=10
         ???
@@ -122,8 +122,8 @@ class BaseSGDGMM(ABC):
         self.epochs = epochs
         self.batch_size = batch_size
         self.tol = 1e-6 # the convergence criterion, of the training loss change between every 2 epoch
-        self.lr = lr    # learing rate
-        self.w = w      # what factor?
+        self.lr = lr
+        self.w = w
         self.restarts = restarts                     # number of times to training the model (outside of epochs)
         self.k_means_factor = k_means_factor         # ??
         self.k_means_iters = k_means_iters           # 
@@ -168,9 +168,9 @@ class BaseSGDGMM(ABC):
 
     def fit(self, data, val_data=None, verbose=False, interval=1):
         """Fit the GMM to data."""
-        n_total = len(data)
+        n_total = len(data) # length of all training set, before batching
 
-        # ???
+        # load data
         init_loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size * self.k_means_factor,

@@ -127,6 +127,13 @@ learning_rate = 1e-3
 optimizer = torch.optim.Adam(gmm.parameters(), lr=learning_rate, weight_decay=0.001)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.4, patience=2)
 
+def reg_loss(self, covars):
+    '''
+    regression loss.
+    '''
+    l = self.w / torch.diagonal(covars, dim1=-1, dim2=-2)
+    return l.sum(axis=(-1,-2))
+
 
 
 # training process
@@ -141,9 +148,9 @@ for n in range(epoch):
         train_loss = 0
         for i, (f_J_i, data_i, cov_i) in enumerate(train_loader_tra):
             optimizer.zero_grad()
-            loss = -gmm.log_prob_b(data_i, f_J_i, noise=cov_i).sum()
-            train_loss += loss.item()
+            log_prob_b, loss = gmm.fit(data_i, f_J_i, noise=cov_i, regression=True)
 
+            train_loss += -log_prob_b.sum().item()
             # backward and update parameters
             loss.backward()
             optimizer.step()
@@ -157,8 +164,9 @@ for n in range(epoch):
         val_loss = 0
         for i, (f_J_i, data_i, cov_i) in enumerate(train_loader_val):
             optimizer.zero_grad()
-            loss = -gmm.log_prob_b(data_i, f_J_i, noise=cov_i).sum()
-            val_loss += loss.item()
+            log_prob_b, loss = gmm.fit(data_i, f_J_i, noise=cov_i)
+
+            val_loss += -log_prob_b.sum().item()
         val_loss = val_loss / size_val
         print('Epoch', (n+1), 'Validation loss', val_loss)
         if val_loss < lowest_loss:
